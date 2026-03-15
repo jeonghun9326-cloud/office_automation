@@ -272,6 +272,40 @@ a {
   margin-top: 24px;
 }
 
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.info-card,
+.policy-item {
+  padding: 18px;
+  border: 1px solid rgba(61, 48, 39, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 253, 250, 0.96);
+}
+
+.info-card h3,
+.policy-item h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.info-card p,
+.policy-item p,
+.rich-copy p {
+  color: var(--muted);
+}
+
+.rich-copy,
+.policy-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
 .dash-card strong,
 .dash-card span {
   display: block;
@@ -441,6 +475,26 @@ a {
   background: rgba(244, 239, 231, 0.8);
 }
 
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  padding: 18px 12px 4px;
+  color: var(--muted);
+}
+
+.site-footer a {
+  color: var(--brand-deep);
+  text-decoration: none;
+}
+
+.site-footer a:hover,
+.site-footer a:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -526,6 +580,10 @@ a {
   }
 
   .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .info-grid {
     grid-template-columns: 1fr;
   }
 
