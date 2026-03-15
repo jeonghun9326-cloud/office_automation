@@ -24,48 +24,50 @@
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   </head>
   <body>
+    <nav class="topbar topbar-fixed" aria-label="주요 메뉴">
+      <div class="topbar-inner">
+        <a class="brand" href="#" data-target="dashboard">Office Auto</a>
+        <ul class="menu-bar">
+          <li class="menu-item">
+            <button type="button">엑셀 파일 변환</button>
+            <ul class="dropdown">
+              <li><a href="#" data-target="merge">파일 병합</a></li>
+              <li><a href="#" data-target="split">파일 분할</a></li>
+            </ul>
+          </li>
+          <li class="menu-item">
+            <button type="button">인사 정보 관련</button>
+            <ul class="dropdown">
+              <li><a href="#" data-target="join-leave">인원 분석</a></li>
+            </ul>
+          </li>
+          <li class="menu-item">
+            <button type="button">근태 관련</button>
+            <ul class="dropdown">
+              <li><a href="#" data-target="vacation">연차관리대장 제작</a></li>
+            </ul>
+          </li>
+          <li class="menu-item">
+            <button type="button">급여 관련</button>
+            <ul class="dropdown">
+              <li><a href="#" data-target="salary">급여 비교분석</a></li>
+            </ul>
+          </li>
+          <li class="menu-item">
+            <button type="button">서비스 안내</button>
+            <ul class="dropdown">
+              <li><a href="#" data-target="about">서비스 소개</a></li>
+              <li><a href="#" data-target="guide">이용 안내</a></li>
+              <li><a href="#" data-target="privacy">개인정보처리방침</a></li>
+              <li><a href="#" data-target="contact">문의</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
     <div class="page-shell">
       <header class="hero-header">
-        <nav class="topbar" aria-label="주요 메뉴">
-          <a class="brand" href="#" data-target="dashboard">Office Auto</a>
-          <ul class="menu-bar">
-            <li class="menu-item">
-              <button type="button">엑셀 파일 변환</button>
-              <ul class="dropdown">
-                <li><a href="#" data-target="merge">파일 병합</a></li>
-                <li><a href="#" data-target="split">파일 분할</a></li>
-              </ul>
-            </li>
-            <li class="menu-item">
-              <button type="button">인사 정보 관련</button>
-              <ul class="dropdown">
-                <li><a href="#" data-target="join-leave">인원 분석</a></li>
-              </ul>
-            </li>
-            <li class="menu-item">
-              <button type="button">근태 관련</button>
-              <ul class="dropdown">
-                <li><a href="#" data-target="vacation">연차관리대장 제작</a></li>
-              </ul>
-            </li>
-            <li class="menu-item">
-              <button type="button">급여 관련</button>
-              <ul class="dropdown">
-                <li><a href="#" data-target="salary">급여 비교분석</a></li>
-              </ul>
-            </li>
-            <li class="menu-item">
-              <button type="button">서비스 안내</button>
-              <ul class="dropdown">
-                <li><a href="#" data-target="about">서비스 소개</a></li>
-                <li><a href="#" data-target="guide">이용 안내</a></li>
-                <li><a href="#" data-target="privacy">개인정보처리방침</a></li>
-                <li><a href="#" data-target="contact">문의</a></li>
-              </ul>
-            </li>
-          </ul>
-        </nav>
-
         <section class="hero">
           <div>
             <p class="eyebrow">사무 자동화 웹 서비스</p>

@@ -17,6 +17,7 @@
 
 body {
   margin: 0;
+  padding-top: 92px;
   font-family: "Noto Sans KR", sans-serif;
   color: var(--text);
   background:
@@ -33,6 +34,27 @@ a {
 .page-shell {
   width: min(1280px, calc(100% - 32px));
   margin: 24px auto 40px;
+}
+
+.topbar-fixed {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 100%;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 250, 244, 0.92);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 26px rgba(62, 39, 24, 0.08);
+}
+
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: min(1280px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 14px 0;
 }
 
 .hero-header {
@@ -508,12 +530,14 @@ a {
 
 @media (max-width: 1080px) {
   .topbar,
+  .topbar-inner,
   .hero,
   .content-grid {
     grid-template-columns: 1fr;
   }
 
-  .topbar {
+  .topbar,
+  .topbar-inner {
     display: grid;
   }
 
@@ -523,6 +547,10 @@ a {
 }
 
 @media (max-width: 720px) {
+  body {
+    padding-top: 126px;
+  }
+
   .page-shell {
     width: min(100% - 20px, 1280px);
     margin-top: 10px;
