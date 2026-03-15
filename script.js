@@ -29,6 +29,16 @@ const vacationBasisInputs = document.querySelectorAll('input[name="vacation-basi
 const vacationRunButton = document.getElementById("vacation-run");
 const vacationStatus = document.getElementById("vacation-status");
 const vacationFileList = document.getElementById("vacation-file-list");
+const salaryFilesInput = document.getElementById("salary-files");
+const salaryHeaderRowInput = document.getElementById("salary-header-row");
+const salaryPeriodColumnInput = document.getElementById("salary-period-column");
+const salaryRunButton = document.getElementById("salary-run");
+const salaryStatus = document.getElementById("salary-status");
+const salaryFileList = document.getElementById("salary-file-list");
+const salaryItemPicker = document.getElementById("salary-item-picker");
+const salarySelectAllButton = document.getElementById("salary-select-all");
+
+let salaryHeaderOptions = [];
 
 function activatePanel(targetId) {
   const nextPanel = document.getElementById(targetId);
@@ -87,6 +97,25 @@ function renderSelectedFiles(input, listElement, emptyMessage, readyMessage) {
 
 function getCheckedValue(name, fallback) {
   return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+}
+
+function normalizeHeaderText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function headerIncludesCandidate(header, candidates) {
+  const normalizedHeader = normalizeHeaderText(header);
+
+  return candidates.some((candidate) => {
+    const normalizedCandidate = normalizeHeaderText(candidate);
+    return (
+      normalizedHeader === normalizedCandidate ||
+      normalizedHeader.includes(normalizedCandidate) ||
+      normalizedCandidate.includes(normalizedHeader)
+    );
+  });
 }
 
 function normalizeSheetName(rawName, usedNames) {
@@ -429,6 +458,10 @@ function findHeaderIndex(headers, candidates) {
   return headers.findIndex((header) => candidates.includes(String(header).trim()));
 }
 
+function findHeaderIndexLoose(headers, candidates) {
+  return headers.findIndex((header) => headerIncludesCandidate(header, candidates));
+}
+
 function parseExcelDate(cell) {
   if (!cell || cell.v == null || cell.v === "") {
     return null;
@@ -438,7 +471,12 @@ function parseExcelDate(cell) {
     return new Date(cell.v.getFullYear(), cell.v.getMonth(), cell.v.getDate());
   }
 
-  if (typeof cell.v === "number") {
+  if (
+    typeof cell.v === "number" &&
+    /[ymd년월일/\-.]/i.test(String(cell.z || "")) &&
+    cell.v > 20000 &&
+    cell.v < 90000
+  ) {
     const parsed = XLSX.SSF.parse_date_code(cell.v);
 
     if (!parsed) {
@@ -626,6 +664,572 @@ function getFiscalAnnualAccrual(joinDate, leaveDate, selectedYear, monthNumber) 
   }
 
   return 0;
+}
+
+function parseNumberValue(cell) {
+  if (!cell || cell.v == null || cell.v === "") {
+    return 0;
+  }
+
+  if (typeof cell.v === "number") {
+    return cell.v;
+  }
+
+  const normalized = String(cell.v).replace(/,/g, "").trim();
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isNumericAmountCell(cell) {
+  if (!cell || cell.v == null || cell.v === "") {
+    return false;
+  }
+
+  if (parseExcelDate(cell)) {
+    return false;
+  }
+
+  if (typeof cell.v === "number") {
+    return true;
+  }
+
+  const normalized = String(cell.v).replace(/,/g, "").trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return /^-?\d+(\.\d+)?$/.test(normalized);
+}
+
+function parsePeriodInfo(cell) {
+  const dateValue = parseExcelDate(cell);
+
+  if (dateValue) {
+    return {
+      year: dateValue.getFullYear(),
+      month: dateValue.getMonth() + 1,
+    };
+  }
+
+  const raw = String(cell?.v ?? "").trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const monthMatch = raw.match(/^(\d{4})[-./년\s]?(\d{1,2})/);
+
+  if (monthMatch) {
+    return {
+      year: Number(monthMatch[1]),
+      month: Number(monthMatch[2]),
+    };
+  }
+
+  const compactMatch = raw.match(/^(\d{4})(\d{2})$/);
+
+  if (compactMatch) {
+    return {
+      year: Number(compactMatch[1]),
+      month: Number(compactMatch[2]),
+    };
+  }
+
+  return null;
+}
+
+function formatMonthKey(period) {
+  return `${period.year}-${String(period.month).padStart(2, "0")}`;
+}
+
+function formatQuarterKey(period) {
+  const quarter = Math.floor((period.month - 1) / 3) + 1;
+  return `${period.year}-Q${quarter}`;
+}
+
+function formatHalfYearKey(period) {
+  const half = period.month <= 6 ? "H1" : "H2";
+  return `${period.year}-${half}`;
+}
+
+function formatDisplayLabel(key, mode) {
+  if (mode === "monthly") {
+    return key;
+  }
+
+  if (mode === "quarterly") {
+    const [year, quarter] = key.split("-");
+    return `${year}년 ${quarter.replace("Q", "")}분기`;
+  }
+
+  if (mode === "half-yearly") {
+    const [year, half] = key.split("-");
+    return `${year}년 ${half === "H1" ? "상반기" : "하반기"}`;
+  }
+
+  return key.includes("_")
+    ? key
+    : `${key}년`;
+}
+
+function buildSalaryHeaderPicker(headers) {
+  if (!headers.length) {
+    salaryItemPicker.innerHTML = "<div class=\"policy-item\"><p>파일을 먼저 선택해 주세요.</p></div>";
+    if (salarySelectAllButton) {
+      salarySelectAllButton.textContent = "전체선택";
+    }
+    return;
+  }
+
+  salaryItemPicker.innerHTML = headers
+    .map(
+      (header, index) => `
+        <label class="choice">
+          <input type="checkbox" class="salary-item-option" data-header-index="${index}" />
+          <span>${header}</span>
+        </label>
+      `
+    )
+    .join("");
+
+  if (salarySelectAllButton) {
+    salarySelectAllButton.textContent = "전체선택";
+  }
+}
+
+function inferSalarySelectableHeaders(parsedFiles) {
+  const excludedCandidates = [
+    "사번",
+    "이름",
+    "성명",
+    "성별",
+    "주민번호",
+    "주민등록번호",
+    "생년월일",
+    "부서",
+    "부서명",
+    "직급",
+    "직급명",
+    "직위",
+    "직책",
+    "직군",
+    "직군명",
+    "지급월",
+    "지급일",
+    "정산월",
+    "정산일",
+    "입사",
+    "입사일",
+    "퇴사",
+    "퇴사일",
+    "일자",
+    "날짜",
+  ];
+  const headerSamples = new Map();
+
+  parsedFiles.forEach((parsedFile) => {
+    parsedFile.headers.forEach((header, index) => {
+      if (headerIncludesCandidate(header, excludedCandidates)) {
+        return;
+      }
+
+      if (!headerSamples.has(header)) {
+        headerSamples.set(header, []);
+      }
+
+      parsedFile.dataRows.forEach((row) => {
+        const cell = row[index];
+
+        if (!cell || cell.v == null || cell.v === "") {
+          return;
+        }
+
+        if (headerSamples.get(header).length < 20) {
+          headerSamples.get(header).push(cell);
+        }
+      });
+    });
+  });
+
+  return Array.from(headerSamples.keys());
+}
+
+async function refreshSalaryHeaderOptions() {
+  const files = Array.from(salaryFilesInput.files || []);
+  const headerRowNumber = Number(salaryHeaderRowInput.value);
+
+  salaryHeaderOptions = [];
+  salaryItemPicker.innerHTML = "";
+
+  if (!files.length || !Number.isInteger(headerRowNumber) || headerRowNumber < 1) {
+    return;
+  }
+
+  try {
+    const parsedFiles = await collectFirstSheetRows(files, headerRowNumber);
+    salaryHeaderOptions = inferSalarySelectableHeaders(parsedFiles);
+    buildSalaryHeaderPicker(salaryHeaderOptions);
+  } catch (error) {
+    setStatus(salaryStatus, error.message || "급여 컬럼 목록을 읽는 중 오류가 발생했습니다.", "error");
+  }
+}
+
+function getSelectedSalaryItems() {
+  return Array.from(document.querySelectorAll(".salary-item-option:checked"))
+    .map((checkbox) => salaryHeaderOptions[Number(checkbox.dataset.headerIndex)])
+    .filter(Boolean);
+}
+
+function getSelectedSalaryPeriodMode() {
+  return getCheckedValue("salary-period-mode", "monthly");
+}
+
+function getSelectedSalaryGroupMode() {
+  return getCheckedValue("salary-group-mode", "overall");
+}
+
+function getSalaryGroupInfo(headers, row, groupMode, employeeIdIndex, nameIndex) {
+  if (groupMode === "overall") {
+    return { key: "전체", label: "전체" };
+  }
+
+  if (groupMode === "individual") {
+    const employeeId = String(row[employeeIdIndex]?.v ?? "").trim();
+    const employeeName = nameIndex === -1 ? "" : String(row[nameIndex]?.v ?? "").trim();
+    return { key: employeeId, label: employeeName || employeeId };
+  }
+
+  const candidateMap = {
+    department: ["부서", "부서명"],
+    grade: ["직급", "직급명"],
+    "job-family": ["직군", "직군명"],
+  };
+  const groupIndex = findHeaderIndexLoose(headers, candidateMap[groupMode] || []);
+
+  if (groupIndex === -1) {
+    throw new Error(`선택한 비교 형태에 필요한 컬럼이 없습니다: ${candidateMap[groupMode].join(", ")}`);
+  }
+
+  const key = String(row[groupIndex]?.v ?? "").trim() || "미분류";
+  return { key, label: key };
+}
+
+function getSalaryPeriodKey(period, mode) {
+  if (mode === "monthly") {
+    return formatMonthKey(period);
+  }
+
+  if (mode === "quarterly") {
+    return formatQuarterKey(period);
+  }
+
+  if (mode === "half-yearly") {
+    return formatHalfYearKey(period);
+  }
+
+  return `${period.year}`;
+}
+
+function sortPeriodKeys(keys, mode) {
+  const sorted = [...keys];
+
+  sorted.sort((left, right) => {
+    if (mode === "monthly") {
+      return left.localeCompare(right);
+    }
+
+    if (mode === "quarterly") {
+      const [leftYear, leftQuarter] = left.split("-Q").map(Number);
+      const [rightYear, rightQuarter] = right.split("-Q").map(Number);
+      return leftYear - rightYear || leftQuarter - rightQuarter;
+    }
+
+    if (mode === "half-yearly") {
+      const [leftYear, leftHalf] = left.split("-");
+      const [rightYear, rightHalf] = right.split("-");
+      return Number(leftYear) - Number(rightYear) || leftHalf.localeCompare(rightHalf);
+    }
+
+    return Number(left) - Number(right);
+  });
+
+  return sorted;
+}
+
+function buildYearlyComparisonPairs(monthlyKeys) {
+  const periods = monthlyKeys.map((key) => {
+    const [year, month] = key.split("-").map(Number);
+    return { year, month };
+  });
+  const latest = periods[periods.length - 1];
+  const minYear = periods[0]?.year;
+  const pairs = [];
+
+  if (!latest || minYear == null) {
+    return pairs;
+  }
+
+  for (let year = latest.year; year > minYear; year -= 1) {
+    const previousYear = year - 1;
+
+    if (year === latest.year && latest.month < 12) {
+      pairs.push({
+        currentKey: `${year}_YTD_${latest.month}`,
+        previousKey: `${previousYear}_YTD_${latest.month}`,
+        currentLabel: `${year}년 1~${latest.month}월`,
+        previousLabel: `${previousYear}년 1~${latest.month}월`,
+        filter: (period) => period.year === year && period.month <= latest.month,
+        previousFilter: (period) => period.year === previousYear && period.month <= latest.month,
+      });
+      continue;
+    }
+
+    pairs.push({
+      currentKey: `${year}`,
+      previousKey: `${previousYear}`,
+      currentLabel: `${year}년`,
+      previousLabel: `${previousYear}년`,
+      filter: (period) => period.year === year,
+      previousFilter: (period) => period.year === previousYear,
+    });
+  }
+
+  return pairs;
+}
+
+function buildComparisonWorkbook(dataset, selectedItems, mode) {
+  const workbook = XLSX.utils.book_new();
+
+  if (mode === "yearly") {
+    const monthlyKeys = sortPeriodKeys(Array.from(dataset.monthlyPeriods.keys()), "monthly");
+    const yearlyPairs = buildYearlyComparisonPairs(monthlyKeys);
+
+    yearlyPairs.forEach((pair) => {
+      const rows = [];
+      dataset.groups.forEach((groupData, groupKey) => {
+        const row = [groupKey, groupData.label];
+
+        selectedItems.forEach((item) => {
+          const currentValue = dataset.monthlyTimeline
+            .filter((entry) => pair.filter(entry.period))
+            .reduce((sum, entry) => sum + (entry.groups.get(groupKey)?.items[item] || 0), 0);
+          const previousValue = dataset.monthlyTimeline
+            .filter((entry) => pair.previousFilter(entry.period))
+            .reduce((sum, entry) => sum + (entry.groups.get(groupKey)?.items[item] || 0), 0);
+
+          row.push(previousValue, currentValue, currentValue - previousValue);
+        });
+
+        rows.push(row);
+      });
+
+      const headers = ["비교기준", "표시명"];
+      selectedItems.forEach((item) => {
+        headers.push(`${item}(${pair.previousLabel})`, `${item}(${pair.currentLabel})`, `${item} 증감액`);
+      });
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.aoa_to_sheet([headers, ...rows]),
+        normalizeSheetName(`${pair.currentLabel}_${pair.previousLabel}`, new Set())
+      );
+    });
+
+    return workbook;
+  }
+
+  const periodKeys = sortPeriodKeys(Array.from(dataset.periods.keys()), mode);
+
+  for (let index = periodKeys.length - 1; index > 0; index -= 1) {
+    const currentKey = periodKeys[index];
+    const previousKey = periodKeys[index - 1];
+    const currentGroups = dataset.periods.get(currentKey) || new Map();
+    const previousGroups = dataset.periods.get(previousKey) || new Map();
+    const allGroupKeys = Array.from(dataset.groups.keys());
+    const rows = allGroupKeys.map((groupKey) => {
+      const currentGroup = currentGroups.get(groupKey) || { items: {}, label: dataset.groups.get(groupKey)?.label || groupKey };
+      const previousGroup = previousGroups.get(groupKey) || { items: {}, label: dataset.groups.get(groupKey)?.label || groupKey };
+      const row = [groupKey, dataset.groups.get(groupKey)?.label || groupKey];
+
+      selectedItems.forEach((item) => {
+        const previousValue = previousGroup.items[item] || 0;
+        const currentValue = currentGroup.items[item] || 0;
+        row.push(previousValue, currentValue, currentValue - previousValue);
+      });
+
+      return row;
+    });
+    const currentLabel = formatDisplayLabel(currentKey, mode);
+    const previousLabel = formatDisplayLabel(previousKey, mode);
+    const headers = ["비교기준", "표시명"];
+
+    selectedItems.forEach((item) => {
+      headers.push(`${item}(${previousLabel})`, `${item}(${currentLabel})`, `${item} 증감액`);
+    });
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([headers, ...rows]),
+      normalizeSheetName(`${currentLabel}_${previousLabel}`, new Set())
+    );
+  }
+
+  return workbook;
+}
+
+async function handleSalaryAnalysis() {
+  const files = Array.from(salaryFilesInput.files || []);
+  const headerRowNumber = Number(salaryHeaderRowInput.value);
+  const selectedItems = getSelectedSalaryItems();
+  const periodColumnName = salaryPeriodColumnInput.value.trim();
+  const periodMode = getSelectedSalaryPeriodMode();
+  const groupMode = getSelectedSalaryGroupMode();
+
+  if (!files.length) {
+    setStatus(salaryStatus, "비교할 급여 엑셀 파일을 하나 이상 선택해야 합니다.", "error");
+    return;
+  }
+
+  if (!Number.isInteger(headerRowNumber) || headerRowNumber < 1) {
+    setStatus(salaryStatus, "컬럼 행 번호는 1 이상의 정수여야 합니다.", "error");
+    return;
+  }
+
+  if (!periodColumnName) {
+    setStatus(salaryStatus, "기간 비교 컬럼명을 입력해야 합니다.", "error");
+    return;
+  }
+
+  if (!selectedItems.length) {
+    setStatus(salaryStatus, "비교할 급여 항목을 하나 이상 선택해야 합니다.", "error");
+    return;
+  }
+
+  setStatus(salaryStatus, "급여 비교 파일을 생성하는 중입니다.");
+
+  try {
+    const parsedFiles = await collectFirstSheetRows(files, headerRowNumber);
+    const dataset = {
+      periods: new Map(),
+      groups: new Map(),
+      monthlyPeriods: new Map(),
+      monthlyTimeline: [],
+    };
+
+    parsedFiles.forEach((parsedFile) => {
+      const headers = parsedFile.headers;
+      const employeeIdIndex = findHeaderIndex(headers, ["사번"]);
+      const nameIndex = findHeaderIndex(headers, ["이름", "성명"]);
+      const periodIndex = findHeaderIndexLoose(headers, [periodColumnName]);
+
+      if (employeeIdIndex === -1) {
+        throw new Error("급여 비교분석에는 사번 컬럼이 반드시 필요합니다.");
+      }
+
+      if (periodIndex === -1) {
+        throw new Error(`기간 비교 컬럼명을 찾지 못했습니다: ${periodColumnName}`);
+      }
+
+      const itemIndexes = selectedItems.map((item) => {
+        const index = findHeaderIndex(headers, [item]);
+
+        if (index === -1) {
+          throw new Error(`${parsedFile.fileName} 파일에서 비교 항목을 찾지 못했습니다: ${item}`);
+        }
+
+        return { item, index };
+      });
+
+      parsedFile.dataRows.forEach((row) => {
+        const periodInfo = parsePeriodInfo(row[periodIndex]);
+
+        if (!periodInfo) {
+          return;
+        }
+
+        const groupInfo = getSalaryGroupInfo(headers, row, groupMode, employeeIdIndex, nameIndex);
+        const periodKey = getSalaryPeriodKey(periodInfo, periodMode);
+
+        if (!dataset.periods.has(periodKey)) {
+          dataset.periods.set(periodKey, new Map());
+        }
+
+        if (!dataset.groups.has(groupInfo.key)) {
+          dataset.groups.set(groupInfo.key, { label: groupInfo.label });
+        }
+
+        const periodGroups = dataset.periods.get(periodKey);
+
+        if (!periodGroups.has(groupInfo.key)) {
+          periodGroups.set(groupInfo.key, { label: groupInfo.label, items: {} });
+        }
+
+        itemIndexes.forEach(({ item, index }) => {
+          const amount = parseNumberValue(row[index]);
+          const groupRecord = periodGroups.get(groupInfo.key);
+          groupRecord.items[item] = (groupRecord.items[item] || 0) + amount;
+        });
+
+        const monthKey = formatMonthKey(periodInfo);
+
+        if (!dataset.monthlyPeriods.has(monthKey)) {
+          dataset.monthlyPeriods.set(monthKey, true);
+        }
+      });
+    });
+
+    const monthlyKeys = sortPeriodKeys(Array.from(dataset.monthlyPeriods.keys()), "monthly");
+    dataset.monthlyTimeline = monthlyKeys.map((key) => {
+      const [year, month] = key.split("-").map(Number);
+      const groups = new Map();
+
+      parsedFiles.forEach((parsedFile) => {
+        const headers = parsedFile.headers;
+        const employeeIdIndex = findHeaderIndex(headers, ["사번"]);
+        const nameIndex = findHeaderIndex(headers, ["이름", "성명"]);
+        const periodIndex = findHeaderIndexLoose(headers, [periodColumnName]);
+        const itemIndexes = selectedItems.map((item) => ({ item, index: findHeaderIndex(headers, [item]) }));
+
+        parsedFile.dataRows.forEach((row) => {
+          const periodInfo = parsePeriodInfo(row[periodIndex]);
+
+          if (!periodInfo || periodInfo.year !== year || periodInfo.month !== month) {
+            return;
+          }
+
+          const groupInfo = getSalaryGroupInfo(headers, row, groupMode, employeeIdIndex, nameIndex);
+
+          if (!groups.has(groupInfo.key)) {
+            groups.set(groupInfo.key, { label: groupInfo.label, items: {} });
+          }
+
+          itemIndexes.forEach(({ item, index }) => {
+            const amount = parseNumberValue(row[index]);
+            const groupRecord = groups.get(groupInfo.key);
+            groupRecord.items[item] = (groupRecord.items[item] || 0) + amount;
+          });
+        });
+      });
+
+      return {
+        key,
+        period: { year, month },
+        groups,
+      };
+    });
+
+    if (!dataset.periods.size) {
+      throw new Error("비교 가능한 기간 데이터를 찾지 못했습니다.");
+    }
+
+    const workbook = buildComparisonWorkbook(dataset, selectedItems, periodMode);
+    const outputName = `salary_comparison_${periodMode}_${groupMode}.xlsx`;
+    XLSX.writeFile(workbook, outputName);
+    setStatus(salaryStatus, `급여 비교분석이 완료되었습니다. ${outputName} 파일이 다운로드됩니다.`, "success");
+  } catch (error) {
+    setStatus(salaryStatus, error.message || "급여 비교분석 중 오류가 발생했습니다.", "error");
+  }
 }
 
 function getAnniversaryAnnualAccrual(joinDate, leaveDate, selectedYear, monthNumber) {
@@ -1004,6 +1608,41 @@ vacationFileInput?.addEventListener("change", () => {
   setStatus(vacationStatus, message);
 });
 
+salaryFilesInput?.addEventListener("change", async () => {
+  const message = renderSelectedFiles(
+    salaryFilesInput,
+    salaryFileList,
+    "파일을 선택하고 비교 항목과 기준을 입력한 뒤 비교 파일 생성을 실행하세요.",
+    "컬럼 행과 비교 기준을 입력한 뒤 비교 항목을 선택하세요."
+  );
+  setStatus(salaryStatus, message);
+  await refreshSalaryHeaderOptions();
+});
+
+salaryHeaderRowInput?.addEventListener("change", async () => {
+  await refreshSalaryHeaderOptions();
+});
+
+salarySelectAllButton?.addEventListener("click", () => {
+  const checkboxes = Array.from(document.querySelectorAll(".salary-item-option"));
+  const allChecked = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
+
+  checkboxes.forEach((checkbox) => {
+    checkbox.checked = !allChecked;
+  });
+
+  salarySelectAllButton.textContent = allChecked ? "전체선택" : "전체해제";
+});
+
+salaryItemPicker?.addEventListener("change", () => {
+  const checkboxes = Array.from(document.querySelectorAll(".salary-item-option"));
+  const allChecked = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
+
+  if (salarySelectAllButton) {
+    salarySelectAllButton.textContent = allChecked ? "전체해제" : "전체선택";
+  }
+});
+
 document.querySelectorAll('input[name="split-mode"]').forEach((radio) => {
   radio.addEventListener("change", updateSplitOptionFields);
 });
@@ -1012,5 +1651,6 @@ mergeRunButton?.addEventListener("click", handleMerge);
 splitRunButton?.addEventListener("click", handleSplit);
 peopleRunButton?.addEventListener("click", handlePeopleAnalysis);
 vacationRunButton?.addEventListener("click", handleVacationLedger);
+salaryRunButton?.addEventListener("click", handleSalaryAnalysis);
 
 updateSplitOptionFields();

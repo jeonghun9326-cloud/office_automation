@@ -344,6 +344,13 @@ a {
   gap: 8px;
 }
 
+.field-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .field span,
 .field legend {
   font-weight: 700;
@@ -420,6 +427,21 @@ a {
 .primary-button:focus-visible {
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgba(111, 49, 24, 0.24);
+  outline: none;
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-deep);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.text-button:hover,
+.text-button:focus-visible {
+  text-decoration: underline;
   outline: none;
 }
 

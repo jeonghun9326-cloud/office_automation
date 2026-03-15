@@ -49,6 +49,12 @@
               </ul>
             </li>
             <li class="menu-item">
+              <button type="button">급여 관련</button>
+              <ul class="dropdown">
+                <li><a href="#" data-target="salary">급여 비교분석</a></li>
+              </ul>
+            </li>
+            <li class="menu-item">
               <button type="button">서비스 안내</button>
               <ul class="dropdown">
                 <li><a href="#" data-target="about">서비스 소개</a></li>
@@ -85,6 +91,7 @@
             <button type="button" data-target="split">파일 분할</button>
             <button type="button" data-target="join-leave">인원 분석</button>
             <button type="button" data-target="vacation">연차관리대장</button>
+            <button type="button" data-target="salary">급여 비교분석</button>
             <button type="button" data-target="guide">이용 안내</button>
             <button type="button" data-target="privacy">개인정보처리방침</button>
           </div>
@@ -109,13 +116,13 @@
                 <strong>근태 관련</strong>
                 <span>연도별 연차관리대장 자동 생성</span>
               </button>
+              <button class="dash-card" type="button" data-target="salary">
+                <strong>급여 관련</strong>
+                <span>기간별 급여 항목 비교와 증감액 분석</span>
+              </button>
               <button class="dash-card" type="button" data-target="about">
                 <strong>서비스 소개</strong>
                 <span>제공 기능, 처리 방식, 지원 범위 안내</span>
-              </button>
-              <button class="dash-card" type="button" data-target="privacy">
-                <strong>개인정보처리방침</strong>
-                <span>광고, 쿠키, 업로드 파일 처리 기준 안내</span>
               </button>
             </div>
             <div class="info-grid">
@@ -361,6 +368,98 @@
               파일과 생성 연도, 기준 방식을 입력한 뒤 연차관리대장 생성을 실행하세요.
             </div>
             <div class="file-list" id="vacation-file-list"></div>
+          </article>
+
+          <article class="panel" id="salary">
+            <div class="panel-head">
+              <p class="panel-kicker">급여 관련</p>
+              <h2>급여 비교분석</h2>
+            </div>
+            <p>
+              여러 급여 파일을 업로드하고 비교할 급여 항목과 기간 기준을 선택하면,
+              월간/분기/반기/연간 비교 결과를 시트별 엑셀 파일로 생성합니다.
+            </p>
+            <div class="toolbox">
+              <label class="field">
+                <span>급여 엑셀 파일 업로드</span>
+                <input id="salary-files" type="file" accept=".xlsx,.xls,.csv" multiple />
+                <small>개인별 비교를 위해 사번 컬럼은 필수입니다.</small>
+              </label>
+              <label class="field">
+                <span>컬럼 행 번호</span>
+                <input
+                  id="salary-header-row"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="1"
+                  placeholder="예: 1"
+                />
+                <small>첫 번째 행이 컬럼이면 1 입력</small>
+              </label>
+              <label class="field">
+                <span>기간 비교 컬럼명</span>
+                <input id="salary-period-column" type="text" placeholder="예: 지급월 또는 지급일" />
+                <small>기간 판별에 사용할 컬럼명을 정확히 입력해 주세요.</small>
+              </label>
+              <fieldset class="field">
+                <legend>비교 기간</legend>
+                <label class="choice">
+                  <input type="radio" name="salary-period-mode" value="monthly" checked />
+                  <span>월간비교</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="salary-period-mode" value="quarterly" />
+                  <span>분기비교</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="salary-period-mode" value="half-yearly" />
+                  <span>반기비교</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="salary-period-mode" value="yearly" />
+                  <span>연간비교</span>
+                </label>
+              </fieldset>
+              <fieldset class="field">
+                <legend>비교 형태</legend>
+                <label class="choice">
+                  <input type="radio" name="salary-group-mode" value="overall" checked />
+                  <span>전체</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="salary-group-mode" value="department" />
+                  <span>부서별</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="salary-group-mode" value="grade" />
+                  <span>직급별</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="salary-group-mode" value="job-family" />
+                  <span>직군별</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="salary-group-mode" value="individual" />
+                  <span>개인별</span>
+                </label>
+              </fieldset>
+              <div class="field">
+                <div class="field-inline">
+                  <span>비교할 급여 항목 선택</span>
+                  <button class="text-button" id="salary-select-all" type="button">전체선택</button>
+                </div>
+                <div class="sheet-picker" id="salary-item-picker"></div>
+                <small>파일을 선택하거나 컬럼 행을 바꾸면 비교 가능한 컬럼 목록을 다시 읽습니다.</small>
+              </div>
+              <div class="action-row">
+                <button class="primary-button" id="salary-run" type="button">비교 파일 생성</button>
+              </div>
+            </div>
+            <div class="status-box" id="salary-status">
+              파일을 선택하고 비교 항목과 기준을 입력한 뒤 비교 파일 생성을 실행하세요.
+            </div>
+            <div class="file-list" id="salary-file-list"></div>
           </article>
 
           <article class="panel" id="guide">
