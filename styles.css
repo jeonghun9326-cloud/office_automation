@@ -334,6 +334,32 @@ a {
   display: none;
 }
 
+.sheet-picker.is-hidden {
+  display: none;
+}
+
+.sheet-picker {
+  display: grid;
+  gap: 14px;
+}
+
+.sheet-card {
+  padding: 18px;
+  border: 1px solid rgba(61, 48, 39, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 253, 250, 0.96);
+}
+
+.sheet-card h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.sheet-options {
+  display: grid;
+  gap: 10px;
+}
+
 .choice {
   display: flex;
   align-items: center;
