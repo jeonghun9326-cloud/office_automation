@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>사무 자동화 서비스</title>
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1882615620686984"
+      crossorigin="anonymous"
+    ></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -31,8 +36,7 @@
             <li class="menu-item">
               <button type="button">인사 정보 관련</button>
               <ul class="dropdown">
-                <li><a href="#" data-target="join-leave">입/퇴사 분석</a></li>
-                <li><a href="#" data-target="headcount">재직 인원 분석</a></li>
+                <li><a href="#" data-target="join-leave">인원 분석</a></li>
               </ul>
             </li>
             <li class="menu-item">
@@ -77,7 +81,7 @@
           <h2>빠른 실행</h2>
           <div class="quick-links">
             <button type="button" data-target="merge">파일 병합</button>
-            <button type="button" data-target="join-leave">입/퇴사 분석</button>
+            <button type="button" data-target="join-leave">인원 분석</button>
             <button type="button" data-target="vacation">연차관리대장</button>
             <button type="button" data-target="salary">급여 비교분석</button>
             <button type="button" data-target="board">게시판</button>
@@ -97,7 +101,7 @@
               </button>
               <button class="dash-card" type="button" data-target="join-leave">
                 <strong>인사 정보 관련</strong>
-                <span>입/퇴사 및 재직 인원 분석</span>
+                <span>기준 월 입사자, 퇴사자, 말일 재직 인원 분석</span>
               </button>
               <button class="dash-card" type="button" data-target="vacation">
                 <strong>근태 관련</strong>
@@ -243,19 +247,43 @@
           <article class="panel" id="join-leave">
             <div class="panel-head">
               <p class="panel-kicker">인사 정보 관련</p>
-              <h2>입/퇴사 분석</h2>
+              <h2>인원 분석</h2>
             </div>
-            <p>월별 입사자/퇴사자 추이와 조직별 증감 현황을 분석하는 영역입니다.</p>
-            <div class="placeholder-box">분석 기간 선택, 부서 필터, 차트/표 출력 기능을 연결할 수 있습니다.</div>
-          </article>
-
-          <article class="panel" id="headcount">
-            <div class="panel-head">
-              <p class="panel-kicker">인사 정보 관련</p>
-              <h2>재직 인원 분석</h2>
+            <p>
+              인사 엑셀 파일을 업로드하고 컬럼 행과 기준 연월을 입력하면, 해당 월의
+              입사자/퇴사자와 말일 기준 재직 인원을 정리한 엑셀 파일을 생성합니다.
+            </p>
+            <div class="toolbox">
+              <label class="field">
+                <span>인사 엑셀 파일 업로드</span>
+                <input id="people-file" type="file" accept=".xlsx,.xls,.csv" />
+                <small>필수 컬럼: 사번, 성명 또는 이름, 입사일(또는 입사), 퇴사일(또는 퇴사)</small>
+              </label>
+              <label class="field">
+                <span>컬럼 행 번호</span>
+                <input
+                  id="people-header-row"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="1"
+                  placeholder="예: 1"
+                />
+                <small>첫 번째 행이 컬럼이면 1 입력</small>
+              </label>
+              <label class="field">
+                <span>기준 연월</span>
+                <input id="people-month" type="month" />
+                <small>입사/퇴사 집계와 말일 재직 인원을 계산할 기준 월</small>
+              </label>
+              <div class="action-row">
+                <button class="primary-button" id="people-run" type="button">분석 파일 생성</button>
+              </div>
             </div>
-            <p>부서, 직급, 고용 형태별 현재 재직 인원을 집계하는 기능 영역입니다.</p>
-            <div class="placeholder-box">기준일 선택과 인원 구성 비율 차트를 배치할 수 있습니다.</div>
+            <div class="status-box" id="people-status">
+              파일과 기준 연월을 입력한 뒤 분석 파일 생성을 실행하세요.
+            </div>
+            <div class="file-list" id="people-file-list"></div>
           </article>
 
           <article class="panel" id="vacation">
@@ -263,8 +291,57 @@
               <p class="panel-kicker">근태 관련</p>
               <h2>연차관리대장 제작</h2>
             </div>
-            <p>사번, 입사일, 사용 연차를 반영해 연차관리대장을 생성하는 기능 영역입니다.</p>
-            <div class="placeholder-box">자동 산식, 누적 사용 현황, 엑셀 출력 기능을 붙일 수 있습니다.</div>
+            <p>
+              인사 엑셀 파일을 업로드하고 생성 연도와 기준 방식을 선택하면, 1월부터
+              12월까지 연결된 연차관리대장 엑셀 파일을 생성합니다.
+            </p>
+            <div class="status-box">
+              전년도 중도 입사자의 미사용 월차 이월분은 자동 계산하지 않습니다. 전년도 월차는
+              연말까지 소진 완료한 기준으로 작성되며, 이월이 필요한 값은 생성 파일의
+              `전기잔여` 컬럼에 직접 입력해야 합니다.
+            </div>
+            <div class="toolbox">
+              <label class="field">
+                <span>인사 엑셀 파일 업로드</span>
+                <input id="vacation-file" type="file" accept=".xlsx,.xls,.csv" />
+                <small>필수 컬럼: 사번, 이름 또는 성명, 입사일 또는 입사, 퇴사일 또는 퇴사</small>
+              </label>
+              <label class="field">
+                <span>생성 연도</span>
+                <input id="vacation-year" type="number" min="2000" step="1" placeholder="예: 2026" />
+                <small>선택한 연도의 1월부터 12월까지 시트를 생성합니다.</small>
+              </label>
+              <label class="field">
+                <span>컬럼 행 번호</span>
+                <input
+                  id="vacation-header-row"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="1"
+                  placeholder="예: 1"
+                />
+                <small>첫 번째 행이 컬럼이면 1 입력</small>
+              </label>
+              <fieldset class="field">
+                <legend>연차 생성 기준</legend>
+                <label class="choice">
+                  <input type="radio" name="vacation-basis" value="fiscal" checked />
+                  <span>회계년도 기준</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="vacation-basis" value="anniversary" />
+                  <span>입사일 기준</span>
+                </label>
+              </fieldset>
+              <div class="action-row">
+                <button class="primary-button" id="vacation-run" type="button">연차관리대장 생성</button>
+              </div>
+            </div>
+            <div class="status-box" id="vacation-status">
+              파일과 생성 연도, 기준 방식을 입력한 뒤 연차관리대장 생성을 실행하세요.
+            </div>
+            <div class="file-list" id="vacation-file-list"></div>
           </article>
 
           <article class="panel" id="salary">
