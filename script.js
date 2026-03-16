@@ -287,6 +287,10 @@ function buildSheetFromStructuredRows(headers, dataRows) {
       if (cell.z) {
         sheet[address].z = cell.z;
       }
+
+      if (cell.l) {
+        sheet[address].l = cell.l;
+      }
     });
   });
 
@@ -1295,6 +1299,107 @@ function getMonthlyAccrual(joinDate, leaveDate, selectedYear, monthNumber) {
   return accrualCount;
 }
 
+function buildVacationAnnualLedgerSheet(employees, selectedYear) {
+  const headers = [
+    "사번",
+    "이름",
+    "입사일",
+    "퇴사일",
+    "전기잔여",
+    "연차발생",
+    "월차발생",
+    ...Array.from({ length: 12 }, (_, index) => `${index + 1}월`),
+    "합계",
+    "잔여연차",
+  ];
+  const priorCarryColumn = 4;
+  const annualAccrualColumn = 5;
+  const monthlyAccrualColumn = 6;
+  const januaryUsedColumn = 7;
+  const totalColumn = januaryUsedColumn + 12;
+  const remainingColumn = totalColumn + 1;
+  const monthlyPriorCarryColumnIndex = 4;
+  const monthlyCarryColumnIndex = 5;
+  const monthlyAnnualColumnIndex = 6;
+  const monthlyMonthlyColumnIndex = 7;
+  const monthlyUsedColumnIndex = 8;
+
+  const rows = employees.map((employee, index) => {
+    const excelRow = index + 2;
+    const baseCells = [
+      createCell(employee.employeeId),
+      createCell(employee.employeeName),
+      createCell(formatDateValue(employee.joinDate)),
+      createCell(formatDateValue(employee.leaveDate)),
+    ];
+
+    const januarySheetName = `${selectedYear}년1월`;
+    const priorCarryCell = createFormulaCell(
+      `IF('${januarySheetName}'!${XLSX.utils.encode_col(monthlyPriorCarryColumnIndex)}${excelRow}<>"",'${januarySheetName}'!${XLSX.utils.encode_col(monthlyPriorCarryColumnIndex)}${excelRow},'${januarySheetName}'!${XLSX.utils.encode_col(monthlyCarryColumnIndex)}${excelRow})`,
+      "n",
+      "0.00"
+    );
+    const annualAccrualCell = createFormulaCell(
+      Array.from({ length: 12 }, (_, monthOffset) => {
+        const monthNumber = monthOffset + 1;
+        const sheetName = `${selectedYear}년${monthNumber}월`;
+        return `'${sheetName}'!${XLSX.utils.encode_col(monthlyAnnualColumnIndex)}${excelRow}`;
+      }).join("+"),
+      "n",
+      "0.00"
+    );
+    const monthlyAccrualCell = createFormulaCell(
+      Array.from({ length: 12 }, (_, monthOffset) => {
+        const monthNumber = monthOffset + 1;
+        const sheetName = `${selectedYear}년${monthNumber}월`;
+        return `'${sheetName}'!${XLSX.utils.encode_col(monthlyMonthlyColumnIndex)}${excelRow}`;
+      }).join("+"),
+      "n",
+      "0.00"
+    );
+    const monthUsedCells = Array.from({ length: 12 }, (_, monthOffset) => {
+      const monthNumber = monthOffset + 1;
+      const sheetName = `${selectedYear}년${monthNumber}월`;
+      return createFormulaCell(`'${sheetName}'!${XLSX.utils.encode_col(monthlyUsedColumnIndex)}${excelRow}`, "n", "0.00");
+    });
+    const totalCell = createFormulaCell(
+      `SUM(${XLSX.utils.encode_col(januaryUsedColumn)}${excelRow}:${XLSX.utils.encode_col(totalColumn - 1)}${excelRow})`,
+      "n",
+      "0.00"
+    );
+    const remainingCell = createFormulaCell(
+      `${XLSX.utils.encode_col(priorCarryColumn)}${excelRow}+${XLSX.utils.encode_col(annualAccrualColumn)}${excelRow}+${XLSX.utils.encode_col(monthlyAccrualColumn)}${excelRow}-${XLSX.utils.encode_col(totalColumn)}${excelRow}`,
+      "n",
+      "0.00"
+    );
+
+    return [...baseCells, priorCarryCell, annualAccrualCell, monthlyAccrualCell, ...monthUsedCells, totalCell, remainingCell];
+  });
+
+  const sheet = buildSheetFromStructuredRows(headers, rows);
+
+  Array.from({ length: 12 }, (_, monthOffset) => {
+    const monthNumber = monthOffset + 1;
+    const columnIndex = januaryUsedColumn + monthOffset;
+    const address = XLSX.utils.encode_cell({ r: 0, c: columnIndex });
+    const sheetName = `${selectedYear}년${monthNumber}월`;
+
+    if (!sheet[address]) {
+      return;
+    }
+
+    sheet[address].l = {
+      Target: `#'${sheetName}'!A1`,
+      Tooltip: `${sheetName} 시트로 이동`,
+    };
+  });
+
+  return {
+    sheetName: "연간관리대장",
+    sheet,
+  };
+}
+
 function buildVacationLedgerSheet(employees, selectedYear, monthNumber, basis, previousSheetName = "") {
   const daysInMonth = new Date(selectedYear, monthNumber, 0).getDate();
   const dayHeaders = Array.from({ length: daysInMonth }, (_, index) => `${index + 1}`);
@@ -1343,9 +1448,19 @@ function buildVacationLedgerSheet(employees, selectedYear, monthNumber, basis, p
     return [...baseCells, priorCarryCell, carryRef, annualCell, monthlyCell, usedCell, remainingCell, ...dayCells];
   });
 
+  const sheet = buildSheetFromStructuredRows(headers, rows);
+  const remainingHeaderAddress = XLSX.utils.encode_cell({ r: 0, c: remainingColumn });
+
+  if (sheet[remainingHeaderAddress]) {
+    sheet[remainingHeaderAddress].l = {
+      Target: "#'연간관리대장'!A1",
+      Tooltip: "연간관리대장 시트로 이동",
+    };
+  }
+
   return {
     sheetName,
-    sheet: buildSheetFromStructuredRows(headers, rows),
+    sheet,
   };
 }
 
@@ -1411,6 +1526,8 @@ async function handleVacationLedger() {
     });
 
     const workbook = XLSX.utils.book_new();
+    const { sheetName: annualSheetName, sheet: annualSheet } = buildVacationAnnualLedgerSheet(employees, selectedYear);
+    XLSX.utils.book_append_sheet(workbook, annualSheet, annualSheetName);
     let previousSheetName = "";
 
     for (let monthNumber = 1; monthNumber <= 12; monthNumber += 1) {
