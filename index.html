@@ -6,7 +6,7 @@
     <title>사무 자동화 서비스</title>
     <meta
       name="description"
-      content="엑셀 파일 병합, 파일 분할, 인원 분석, 연차관리대장 제작을 제공하는 사무 자동화 웹 서비스입니다."
+      content="엑셀 파일 병합, 파일 분할, 인원 분석, 연차관리대장 제작, 주휴계산을 제공하는 사무 자동화 웹 서비스입니다."
     />
     <script
       async
@@ -50,6 +50,7 @@
           <li class="menu-item">
             <button type="button">급여 관련</button>
             <ul class="dropdown">
+              <li><a href="#" data-target="weekly-holiday">주휴계산</a></li>
               <li><a href="#" data-target="salary">급여 비교분석</a></li>
             </ul>
           </li>
@@ -74,7 +75,7 @@
             <h1>반복 업무를 메뉴별로 빠르게</h1>
             <p class="hero-copy">
               로그인 없이 바로 진입할 수 있고, 엑셀 변환부터 인사/근태/급여 분석,
-              게시판까지 한 화면에서 접근할 수 있도록 구성했습니다.
+              주휴계산까지 한 화면에서 접근할 수 있도록 구성했습니다.
             </p>
           </div>
         </section>
@@ -103,6 +104,10 @@
               <button class="dash-card" type="button" data-target="salary">
                 <strong>급여 관련</strong>
                 <span>기간별 급여 항목 비교와 증감액 분석</span>
+              </button>
+              <button class="dash-card" type="button" data-target="weekly-holiday">
+                <strong>주휴계산</strong>
+                <span>근무기록 기준 4주 평균과 주휴 대상 여부 계산</span>
               </button>
               <button class="dash-card" type="button" data-target="about">
                 <strong>서비스 소개</strong>
@@ -249,7 +254,7 @@
             </div>
             <div class="rich-copy">
               <p>이 서비스는 반복적인 엑셀 사무 업무를 줄이기 위해 제작된 웹 기반 자동화 도구입니다.</p>
-              <p>현재 제공 기능은 파일 병합, 파일 분할, 인원 분석, 연차관리대장 제작입니다. 각 기능은 업로드한 파일을 기준으로 결과 파일을 즉시 생성하는 형태로 동작합니다.</p>
+              <p>현재 제공 기능은 파일 병합, 파일 분할, 인원 분석, 연차관리대장 제작, 주휴계산입니다. 각 기능은 업로드한 파일을 기준으로 결과 파일을 즉시 생성하는 형태로 동작합니다.</p>
               <p>미구현 메뉴는 승인 전 노출하지 않고 있으며, 운영 중인 도구의 범위와 처리 방식을 화면에서 바로 확인할 수 있도록 구성했습니다.</p>
             </div>
           </article>
@@ -446,6 +451,60 @@
             <div class="file-list" id="salary-file-list"></div>
           </article>
 
+          <article class="panel" id="weekly-holiday">
+            <div class="panel-head">
+              <p class="panel-kicker">급여 관련</p>
+              <h2>주휴계산</h2>
+            </div>
+            <p>
+              근무기록 엑셀 파일과 시작일을 입력하면, 직원별 4주 단위 근무시간 합계와
+              4주 평균, 주휴 대상 여부를 정방향/역방향 기준으로 계산한 엑셀 파일을 생성합니다.
+            </p>
+            <div class="toolbox">
+              <label class="field">
+                <span>근무기록 엑셀 파일 업로드</span>
+                <input id="workstat-file" type="file" accept=".xlsx,.xls,.csv" />
+                <small>지원 헤더: `work_date` + `hours` (+ `emp_id`) 또는 `년`, `월`, `일`, `근무시간`</small>
+              </label>
+              <label class="field">
+                <span>컬럼 행 번호</span>
+                <input
+                  id="workstat-header-row"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="1"
+                  placeholder="예: 1"
+                />
+                <small>첫 번째 행이 컬럼이면 1 입력</small>
+              </label>
+              <label class="field">
+                <span>시작일</span>
+                <input id="workstat-start-date" type="date" />
+                <small>정방향 4주 집계의 시작 기준일</small>
+              </label>
+              <div class="action-row">
+                <button class="primary-button" id="workstat-run" type="button">주휴 계산 파일 생성</button>
+              </div>
+            </div>
+            <div class="status-box" id="workstat-status">
+              파일과 시작일을 입력한 뒤 주휴 계산 파일 생성을 실행하세요.
+            </div>
+            <div class="file-list" id="workstat-file-list"></div>
+            <div class="workstat-result is-hidden" id="workstat-result">
+              <div class="workstat-grid">
+                <section class="sheet-card">
+                  <h3>정방향 집계</h3>
+                  <div class="table-wrap" id="workstat-forward-preview"></div>
+                </section>
+                <section class="sheet-card">
+                  <h3>역방향 집계</h3>
+                  <div class="table-wrap" id="workstat-backward-preview"></div>
+                </section>
+              </div>
+            </div>
+          </article>
+
           <article class="panel" id="guide">
             <div class="panel-head">
               <p class="panel-kicker">서비스 안내</p>
@@ -467,6 +526,10 @@
               <div class="policy-item">
                 <h3>4. 연차관리대장 제작</h3>
                 <p>선택 연도 기준으로 1월부터 12월까지 연결된 연차관리대장 시트를 생성합니다. 사용일 입력 시 당월사용과 잔여연차가 자동 반영됩니다.</p>
+              </div>
+              <div class="policy-item">
+                <h3>5. 주휴계산</h3>
+                <p>근무기록 파일에서 4주 단위 총근무시간과 4주 평균을 계산하고, 평균 15시간 이상 여부를 기준으로 주휴 대상 여부를 표시합니다.</p>
               </div>
             </div>
           </article>

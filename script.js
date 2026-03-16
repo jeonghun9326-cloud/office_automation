@@ -37,6 +37,15 @@ const salaryStatus = document.getElementById("salary-status");
 const salaryFileList = document.getElementById("salary-file-list");
 const salaryItemPicker = document.getElementById("salary-item-picker");
 const salarySelectAllButton = document.getElementById("salary-select-all");
+const workstatFileInput = document.getElementById("workstat-file");
+const workstatHeaderRowInput = document.getElementById("workstat-header-row");
+const workstatStartDateInput = document.getElementById("workstat-start-date");
+const workstatRunButton = document.getElementById("workstat-run");
+const workstatStatus = document.getElementById("workstat-status");
+const workstatFileList = document.getElementById("workstat-file-list");
+const workstatResult = document.getElementById("workstat-result");
+const workstatForwardPreview = document.getElementById("workstat-forward-preview");
+const workstatBackwardPreview = document.getElementById("workstat-backward-preview");
 
 let salaryHeaderOptions = [];
 
@@ -1555,6 +1564,285 @@ async function handleSplit() {
   }
 }
 
+function parseWorkstatDate(cell) {
+  if (!cell || cell.v == null || cell.v === "") {
+    return null;
+  }
+
+  if (cell.v instanceof Date) {
+    return new Date(cell.v.getFullYear(), cell.v.getMonth(), cell.v.getDate());
+  }
+
+  if (typeof cell.v === "number" && cell.v > 0 && cell.v < 90000) {
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    epoch.setUTCDate(epoch.getUTCDate() + Math.floor(cell.v));
+    return new Date(epoch.getUTCFullYear(), epoch.getUTCMonth(), epoch.getUTCDate());
+  }
+
+  return parseExcelDate(cell);
+}
+
+function buildWorkstatRecords(parsedFile) {
+  const headers = parsedFile.headers;
+  const findIndexByCandidates = (candidates) =>
+    headers.findIndex((header) => headerIncludesCandidate(header, candidates));
+
+  const workDateIndex = findIndexByCandidates(["work_date", "workdate"]);
+  const hoursIndex = findIndexByCandidates(["hours"]);
+  const empIdIndex = findIndexByCandidates(["emp_id", "empid", "사번", "직원번호"]);
+  const yearIndex = findIndexByCandidates(["년"]);
+  const monthIndex = findIndexByCandidates(["월"]);
+  const dayIndex = findIndexByCandidates(["일"]);
+  const koreanHoursIndex = findIndexByCandidates(["근무시간"]);
+
+  const records = [];
+
+  if (workDateIndex !== -1 && hoursIndex !== -1) {
+    parsedFile.dataRows.forEach((row) => {
+      const workDate = parseWorkstatDate(row[workDateIndex]);
+
+      if (!workDate) {
+        return;
+      }
+
+      records.push({
+        empId: String(row[empIdIndex]?.v ?? "ALL").trim() || "ALL",
+        workDate,
+        hours: parseNumberValue(row[hoursIndex]),
+      });
+    });
+
+    return records;
+  }
+
+  if (yearIndex !== -1 && monthIndex !== -1 && dayIndex !== -1 && koreanHoursIndex !== -1) {
+    parsedFile.dataRows.forEach((row) => {
+      const year = parseNumberValue(row[yearIndex]);
+      const month = parseNumberValue(row[monthIndex]);
+      const day = parseNumberValue(row[dayIndex]);
+
+      if (!year || !month || !day) {
+        return;
+      }
+
+      const workDate = new Date(year, month - 1, day);
+
+      if (Number.isNaN(workDate.getTime())) {
+        return;
+      }
+
+      records.push({
+        empId: String(row[empIdIndex]?.v ?? "ALL").trim() || "ALL",
+        workDate,
+        hours: parseNumberValue(row[koreanHoursIndex]),
+      });
+    });
+
+    return records;
+  }
+
+  throw new Error("헤더 형식을 인식하지 못했습니다. `work_date` + `hours` 또는 `년`, `월`, `일`, `근무시간` 형식이 필요합니다.");
+}
+
+function addDays(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function roundToOneDecimal(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function compareWorkstatRows(left, right) {
+  return (
+    left.empId.localeCompare(right.empId, "ko") ||
+    left.block - right.block
+  );
+}
+
+function finalizeWorkstatRows(groupMap, dateFactory) {
+  const sequenceMap = new Map();
+
+  return Array.from(groupMap.values())
+    .sort(compareWorkstatRows)
+    .map((entry) => {
+      const totalHours = roundToOneDecimal(entry.totalHours);
+      const averageHours = roundToOneDecimal(totalHours / 4);
+      const nextSequence = (sequenceMap.get(entry.empId) || 0) + 1;
+      sequenceMap.set(entry.empId, nextSequence);
+      const { fromDate, toDate } = dateFactory(entry.block);
+
+      return {
+        SEQ: nextSequence,
+        FROM: formatDateValue(fromDate),
+        TO: formatDateValue(toDate),
+        "4주근무시간": totalHours,
+        "4주근무시간/4": averageHours,
+        퇴직산정주여부: averageHours >= 15 ? 1 : 0,
+        emp_id: entry.empId,
+      };
+    });
+}
+
+function calculateWorkstatForward(records, startDate) {
+  const filtered = records.filter((record) => record.workDate >= startDate);
+
+  if (!filtered.length) {
+    throw new Error("시작일 이후 데이터가 없습니다.");
+  }
+
+  const groups = new Map();
+
+  filtered.forEach((record) => {
+    const block = Math.floor((record.workDate - startDate) / (1000 * 60 * 60 * 24 * 28));
+    const key = `${record.empId}__${block}`;
+
+    if (!groups.has(key)) {
+      groups.set(key, { empId: record.empId, block, totalHours: 0 });
+    }
+
+    groups.get(key).totalHours += record.hours;
+  });
+
+  return finalizeWorkstatRows(groups, (block) => {
+    const fromDate = addDays(startDate, block * 28);
+    return { fromDate, toDate: addDays(fromDate, 27) };
+  });
+}
+
+function calculateWorkstatBackward(records) {
+  const lastWorkedRecord = records
+    .filter((record) => record.hours > 0)
+    .sort((left, right) => right.workDate - left.workDate)[0];
+
+  if (!lastWorkedRecord) {
+    throw new Error("근무시간이 0보다 큰 행이 없습니다.");
+  }
+
+  const endDate = lastWorkedRecord.workDate;
+  const filtered = records.filter((record) => record.workDate <= endDate);
+  const groups = new Map();
+
+  filtered.forEach((record) => {
+    const block = Math.floor((endDate - record.workDate) / (1000 * 60 * 60 * 24 * 28));
+    const key = `${record.empId}__${block}`;
+
+    if (!groups.has(key)) {
+      groups.set(key, { empId: record.empId, block, totalHours: 0 });
+    }
+
+    groups.get(key).totalHours += record.hours;
+  });
+
+  return finalizeWorkstatRows(groups, (block) => {
+    const toDate = addDays(endDate, -block * 28);
+    return { fromDate: addDays(toDate, -27), toDate };
+  });
+}
+
+function buildWorkstatSheet(rows) {
+  const headers = ["SEQ", "FROM", "TO", "4주근무시간", "4주근무시간/4", "퇴직산정주여부", "emp_id"];
+  const matrix = [
+    headers,
+    ...rows.map((row) => headers.map((header) => row[header])),
+  ];
+
+  return XLSX.utils.aoa_to_sheet(matrix);
+}
+
+function renderWorkstatPreview(container, rows) {
+  const headers = ["SEQ", "FROM", "TO", "4주근무시간", "4주근무시간/4", "퇴직산정주여부", "emp_id"];
+  const previewRows = rows.slice(0, 20);
+
+  if (!previewRows.length) {
+    container.innerHTML = "<p>표시할 결과가 없습니다.</p>";
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="result-table">
+      <thead>
+        <tr>${headers.map((header) => `<th>${header}</th>`).join("")}</tr>
+      </thead>
+      <tbody>
+        ${previewRows
+          .map(
+            (row) => `
+              <tr>${headers.map((header) => `<td>${row[header] ?? ""}</td>`).join("")}</tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function hideWorkstatResult() {
+  workstatResult?.classList.add("is-hidden");
+
+  if (workstatForwardPreview) {
+    workstatForwardPreview.innerHTML = "";
+  }
+
+  if (workstatBackwardPreview) {
+    workstatBackwardPreview.innerHTML = "";
+  }
+}
+
+async function handleWorkstatAnalysis() {
+  const file = workstatFileInput.files?.[0];
+  const headerRowNumber = Number(workstatHeaderRowInput.value);
+  const startValue = workstatStartDateInput.value;
+
+  if (!file) {
+    setStatus(workstatStatus, "주휴 계산에 사용할 근무기록 엑셀 파일을 선택해야 합니다.", "error");
+    return;
+  }
+
+  if (!Number.isInteger(headerRowNumber) || headerRowNumber < 1) {
+    setStatus(workstatStatus, "컬럼 행 번호는 1 이상의 정수여야 합니다.", "error");
+    return;
+  }
+
+  if (!startValue) {
+    setStatus(workstatStatus, "시작일을 입력해야 합니다.", "error");
+    return;
+  }
+
+  const [year, month, day] = startValue.split("-").map(Number);
+  const startDate = new Date(year, month - 1, day);
+
+  if (Number.isNaN(startDate.getTime())) {
+    setStatus(workstatStatus, "시작일 형식이 올바르지 않습니다.", "error");
+    return;
+  }
+
+  setStatus(workstatStatus, "근무기록을 분석하고 주휴 계산 파일을 생성하는 중입니다.");
+
+  try {
+    const parsedFiles = await collectFirstSheetRows([file], headerRowNumber);
+    const records = buildWorkstatRecords(parsedFiles[0]);
+    const forwardRows = calculateWorkstatForward(records, startDate);
+    const backwardRows = calculateWorkstatBackward(records);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, buildWorkstatSheet(forwardRows), "정방향");
+    XLSX.utils.book_append_sheet(workbook, buildWorkstatSheet(backwardRows), "역방향");
+
+    renderWorkstatPreview(workstatForwardPreview, forwardRows);
+    renderWorkstatPreview(workstatBackwardPreview, backwardRows);
+    workstatResult?.classList.remove("is-hidden");
+
+    const outputName = `weekly_holiday_${startValue}.xlsx`;
+    XLSX.writeFile(workbook, outputName);
+    setStatus(workstatStatus, `주휴 계산이 완료되었습니다. ${outputName} 파일이 다운로드됩니다.`, "success");
+  } catch (error) {
+    hideWorkstatResult();
+    setStatus(workstatStatus, error.message || "주휴 계산 중 오류가 발생했습니다.", "error");
+  }
+}
+
 triggers.forEach((trigger) => {
   trigger.addEventListener("click", (event) => {
     const { target } = trigger.dataset;
@@ -1643,6 +1931,20 @@ salaryItemPicker?.addEventListener("change", () => {
   }
 });
 
+workstatFileInput?.addEventListener("change", () => {
+  hideWorkstatResult();
+  const message = renderSelectedFiles(
+    workstatFileInput,
+    workstatFileList,
+    "파일과 시작일을 입력한 뒤 주휴 계산 파일 생성을 실행하세요.",
+    "컬럼 행과 시작일을 입력하고 실행하세요."
+  );
+  setStatus(workstatStatus, message);
+});
+
+workstatHeaderRowInput?.addEventListener("change", hideWorkstatResult);
+workstatStartDateInput?.addEventListener("change", hideWorkstatResult);
+
 document.querySelectorAll('input[name="split-mode"]').forEach((radio) => {
   radio.addEventListener("change", updateSplitOptionFields);
 });
@@ -1652,5 +1954,6 @@ splitRunButton?.addEventListener("click", handleSplit);
 peopleRunButton?.addEventListener("click", handlePeopleAnalysis);
 vacationRunButton?.addEventListener("click", handleVacationLedger);
 salaryRunButton?.addEventListener("click", handleSalaryAnalysis);
+workstatRunButton?.addEventListener("click", handleWorkstatAnalysis);
 
 updateSplitOptionFields();
