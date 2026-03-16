@@ -383,6 +383,68 @@ a {
   gap: 14px;
 }
 
+.severance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.severance-grid-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.severance-result.is-hidden {
+  display: none;
+}
+
+.severance-result {
+  display: grid;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.severance-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.severance-card {
+  padding: 18px;
+  border: 1px solid rgba(61, 48, 39, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 253, 250, 0.96);
+}
+
+.severance-card h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.severance-card p {
+  margin: 6px 0 0;
+}
+
+.severance-metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(61, 48, 39, 0.08);
+}
+
+.severance-metric:last-child {
+  border-bottom: 0;
+}
+
+.severance-metric strong {
+  color: var(--brand-deep);
+}
+
+.severance-table-wrap {
+  max-height: 420px;
+}
+
 .table-wrap {
   overflow: auto;
   border: 1px solid rgba(61, 48, 39, 0.12);
@@ -443,6 +505,7 @@ a {
 .action-row {
   display: flex;
   justify-content: flex-start;
+  gap: 12px;
 }
 
 .primary-button {
@@ -460,6 +523,30 @@ a {
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgba(111, 49, 24, 0.24);
   outline: none;
+}
+
+.secondary-button {
+  padding: 14px 20px;
+  border: 1px solid rgba(111, 49, 24, 0.22);
+  border-radius: 14px;
+  background: #fffaf6;
+  color: var(--brand-deep);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(111, 49, 24, 0.12);
+  outline: none;
+}
+
+.secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .text-button {
@@ -647,6 +734,12 @@ a {
   }
 
   .workstat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .severance-grid,
+  .severance-grid-compact,
+  .severance-summary {
     grid-template-columns: 1fr;
   }
 

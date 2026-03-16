@@ -46,6 +46,25 @@ const workstatFileList = document.getElementById("workstat-file-list");
 const workstatResult = document.getElementById("workstat-result");
 const workstatForwardPreview = document.getElementById("workstat-forward-preview");
 const workstatBackwardPreview = document.getElementById("workstat-backward-preview");
+const severanceCompanyInput = document.getElementById("severance-company");
+const severanceSiteInput = document.getElementById("severance-site");
+const severanceNameInput = document.getElementById("severance-name");
+const severanceIdNumberInput = document.getElementById("severance-id-number");
+const severanceJoinDateInput = document.getElementById("severance-join-date");
+const severanceEndDateInput = document.getElementById("severance-end-date");
+const severanceEmploymentTypeInput = document.getElementById("severance-employment-type");
+const severanceMidStartInput = document.getElementById("severance-mid-start");
+const severanceMidEndInput = document.getElementById("severance-mid-end");
+const severanceWageInputs = [1, 2, 3, 4].map((index) => document.getElementById(`severance-wage-${index}`));
+const severancePeriodLabels = [1, 2, 3, 4].map((index) => document.getElementById(`severance-period-label-${index}`));
+const severanceBonusInput = document.getElementById("severance-bonus");
+const severanceVacationPayInput = document.getElementById("severance-vacation-pay");
+const severanceRunButton = document.getElementById("severance-run");
+const severanceSavePdfButton = document.getElementById("severance-save-pdf");
+const severanceStatus = document.getElementById("severance-status");
+const severanceResult = document.getElementById("severance-result");
+const severanceSummary = document.getElementById("severance-summary");
+const severancePeriodTable = document.getElementById("severance-period-table");
 
 let salaryHeaderOptions = [];
 
@@ -1843,6 +1862,440 @@ async function handleWorkstatAnalysis() {
   }
 }
 
+function formatNumber(value, digits = 0) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+
+  return value.toLocaleString("ko-KR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function roundDownToTens(value) {
+  return Math.floor((value || 0) / 10) * 10;
+}
+
+function roundUpToTens(value) {
+  return Math.ceil((value || 0) / 10) * 10;
+}
+
+function parseDateInputValue(value) {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function endOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonthsClamped(date, months) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + months;
+  const targetYear = year + Math.floor(month / 12);
+  const targetMonth = ((month % 12) + 12) % 12;
+  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+  return new Date(targetYear, targetMonth, Math.min(date.getDate(), lastDay));
+}
+
+function diffDaysInclusive(fromDate, toDate) {
+  return Math.floor((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+function buildSeverancePeriods(causeDate) {
+  const overallStart = addMonthsClamped(causeDate, -3);
+  const overallEnd = addDays(causeDate, -1);
+  const periods = [];
+  let cursor = overallStart;
+
+  while (cursor <= overallEnd && periods.length < 4) {
+    const periodEnd = endOfMonth(cursor) < overallEnd ? endOfMonth(cursor) : overallEnd;
+    periods.push({
+      from: new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()),
+      to: periodEnd,
+      days: diffDaysInclusive(cursor, periodEnd),
+    });
+    cursor = addDays(periodEnd, 1);
+  }
+
+  return {
+    overallStart,
+    overallEnd,
+    totalDays: diffDaysInclusive(overallStart, overallEnd),
+    periods,
+  };
+}
+
+function renderSeverancePeriodLabels() {
+  const endDate = parseDateInputValue(severanceEndDateInput?.value);
+
+  severancePeriodLabels.forEach((label, index) => {
+    if (label) {
+      label.textContent = `${index + 1}구간 급여`;
+    }
+  });
+
+  if (!endDate) {
+    return;
+  }
+
+  const causeDate = addDays(endDate, 1);
+  const { periods } = buildSeverancePeriods(causeDate);
+
+  periods.forEach((period, index) => {
+    if (severancePeriodLabels[index]) {
+      severancePeriodLabels[index].textContent = `${formatDateValue(period.from)} ~ ${formatDateValue(period.to)} 급여`;
+    }
+  });
+}
+
+function hideSeveranceResult() {
+  severanceResult?.classList.add("is-hidden");
+  severanceSavePdfButton?.setAttribute("disabled", "disabled");
+
+  if (severanceSummary) {
+    severanceSummary.innerHTML = "";
+  }
+
+  if (severancePeriodTable) {
+    severancePeriodTable.innerHTML = "";
+  }
+}
+
+function buildSeverancePdfHtml() {
+  const summaryHtml = severanceSummary?.innerHTML || "";
+  const tableHtml = severancePeriodTable?.outerHTML || "";
+  const title = severanceNameInput?.value?.trim()
+    ? `${severanceNameInput.value.trim()} 퇴직금 계산내역`
+    : "퇴직금 계산내역";
+
+  return `<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${title}</title>
+    <style>
+      body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; margin: 24px; color: #2f261f; }
+      h1 { margin: 0 0 16px; font-size: 24px; }
+      .meta { margin-bottom: 20px; color: #6f5b4f; font-size: 12px; }
+      .severance-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+      .severance-card { border: 1px solid #d9c8bc; border-radius: 12px; padding: 16px; break-inside: avoid; }
+      .severance-card h3 { margin: 0 0 12px; font-size: 16px; }
+      .severance-metric { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #eee2d8; }
+      .severance-metric:last-child { border-bottom: 0; }
+      .result-table { width: 100%; border-collapse: collapse; }
+      .result-table th, .result-table td { border: 1px solid #d9c8bc; padding: 10px; text-align: left; font-size: 12px; }
+      .result-table th { background: #f7efe8; }
+      @media print {
+        body { margin: 12mm; }
+        button { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>${title}</h1>
+    <div class="meta">출력일 ${formatDateValue(new Date())}</div>
+    <div class="severance-summary">${summaryHtml}</div>
+    ${tableHtml}
+    <script>
+      window.onload = function() {
+        window.print();
+      };
+    </script>
+  </body>
+</html>`;
+}
+
+function handleSeverancePdfSave() {
+  if (severanceResult?.classList.contains("is-hidden")) {
+    setStatus(severanceStatus, "먼저 퇴직금 계산을 완료한 뒤 PDF 저장을 실행해 주세요.", "error");
+    return;
+  }
+
+  const printWindow = window.open("", "_blank", "width=960,height=1200");
+  if (!printWindow) {
+    setStatus(severanceStatus, "팝업이 차단되어 PDF 저장 창을 열 수 없습니다. 팝업 허용 후 다시 시도해 주세요.", "error");
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(buildSeverancePdfHtml());
+  printWindow.document.close();
+}
+
+function getNumericInputValue(input) {
+  const normalizedValue = String(input?.value || "").replace(/,/g, "").trim();
+  return Number(normalizedValue || 0) || 0;
+}
+
+function formatNumericInput(input, allowDecimal = false) {
+  if (!input) {
+    return;
+  }
+
+  const rawValue = String(input.value || "").replace(/,/g, "");
+  const sanitizedValue = allowDecimal
+    ? rawValue.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
+    : rawValue.replace(/\D/g, "");
+
+  if (!sanitizedValue) {
+    input.value = "";
+    return;
+  }
+
+  if (allowDecimal) {
+    const [integerPart, decimalPart] = sanitizedValue.split(".");
+    const formattedInteger = (integerPart || "0").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    input.value = decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
+    return;
+  }
+
+  input.value = sanitizedValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function buildSeveranceSummaryCard(title, metrics) {
+  return `
+    <section class="severance-card">
+      <h3>${title}</h3>
+      ${metrics
+        .map(
+          ({ label, value }) => `
+            <div class="severance-metric">
+              <span>${label}</span>
+              <strong>${value}</strong>
+            </div>
+          `
+        )
+        .join("")}
+    </section>
+  `;
+}
+
+function renderSeveranceResult(result) {
+  severanceSummary.innerHTML = [
+    buildSeveranceSummaryCard("기본 정보", [
+      { label: "작성일", value: formatDateValue(new Date()) },
+      { label: "산정사유발생일", value: formatDateValue(result.causeDate) },
+      { label: "산정 대상 기간", value: `${formatDateValue(result.overallStart)} ~ ${formatDateValue(result.overallEnd)}` },
+      { label: "산정 일수", value: `${formatNumber(result.eligibleDays)}일` },
+      { label: "고용형태", value: severanceEmploymentTypeInput.value.trim() || "-" },
+      { label: "성명", value: severanceNameInput.value.trim() || "-" },
+    ]),
+    buildSeveranceSummaryCard("임금 계산", [
+      { label: "총임금액", value: `${formatNumber(result.totalWages)}원` },
+      { label: "평균임금", value: `${formatNumber(result.averageWage)}원` },
+      { label: "통상임금", value: `${formatNumber(result.ordinaryWage)}원` },
+      { label: "적용기준", value: result.wageBasisLabel },
+      { label: "기준금액", value: `${formatNumber(result.wageBasisAmount)}원` },
+      { label: "퇴직금", value: `${formatNumber(result.retirementPay)}원` },
+    ]),
+    buildSeveranceSummaryCard("공제 반영", [
+      { label: "퇴직소득총액", value: `${formatNumber(result.totalRetirementIncome)}원` },
+      { label: "퇴직주민세", value: `${formatNumber(result.localTax)}원` },
+      { label: "일반공제 합계", value: `${formatNumber(result.generalDeductionTotal)}원` },
+      { label: "기타공제 합계", value: `${formatNumber(result.otherDeductionsTotal)}원` },
+      { label: "일반공제 후 총액", value: `${formatNumber(result.afterGeneralDeduction)}원` },
+      { label: "실지급대상", value: `${formatNumber(result.netPay)}원` },
+    ]),
+  ].join("");
+
+  severancePeriodTable.innerHTML = `
+    <thead>
+      <tr>
+        <th>구간</th>
+        <th>기간</th>
+        <th>일수</th>
+        <th>급여(제수당)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${result.periods
+        .map(
+          (period, index) => `
+            <tr>
+              <td>${index + 1}구간</td>
+              <td>${formatDateValue(period.from)} ~ ${formatDateValue(period.to)}</td>
+              <td>${formatNumber(period.days)}일</td>
+              <td>${formatNumber(period.wage, 2)}원</td>
+            </tr>
+          `
+        )
+        .join("")}
+      <tr>
+        <td>상여금</td>
+        <td>3/12 반영</td>
+        <td>-</td>
+        <td>${formatNumber(result.bonusAdjusted)}원</td>
+      </tr>
+      <tr>
+        <td>연차수당</td>
+        <td>3/12 반영</td>
+        <td>-</td>
+        <td>${formatNumber(result.vacationAdjusted)}원</td>
+      </tr>
+      <tr>
+        <td>기타수당</td>
+        <td>${formatNumber(result.extraPayNumerator)} / ${formatNumber(result.extraPayDenominator)}</td>
+        <td>-</td>
+        <td>${formatNumber(result.extraAdjusted)}원</td>
+      </tr>
+    </tbody>
+  `;
+
+  severanceResult?.classList.remove("is-hidden");
+}
+
+function handleSeveranceCalculation() {
+  const joinDate = parseDateInputValue(severanceJoinDateInput.value);
+  const endDate = parseDateInputValue(severanceEndDateInput.value);
+  const midStartDate = parseDateInputValue(severanceMidStartInput.value);
+  const midEndDate = parseDateInputValue(severanceMidEndInput.value);
+
+  if (!joinDate || !endDate) {
+    setStatus(severanceStatus, "입사일과 종료일은 반드시 입력해야 합니다.", "error");
+    hideSeveranceResult();
+    return;
+  }
+
+  if (endDate < joinDate) {
+    setStatus(severanceStatus, "종료일은 입사일보다 빠를 수 없습니다.", "error");
+    hideSeveranceResult();
+    return;
+  }
+
+  if ((midStartDate && !midEndDate) || (!midStartDate && midEndDate)) {
+    setStatus(severanceStatus, "중간정산 기간은 시작일과 종료일을 모두 입력해야 합니다.", "error");
+    hideSeveranceResult();
+    return;
+  }
+
+  if (midStartDate && midEndDate && midEndDate < midStartDate) {
+    setStatus(severanceStatus, "중간정산 종료일은 시작일보다 빠를 수 없습니다.", "error");
+    hideSeveranceResult();
+    return;
+  }
+
+  const causeDate = addDays(endDate, 1);
+  const { overallStart, overallEnd, totalDays, periods } = buildSeverancePeriods(causeDate);
+  const eligibleDays = totalDays;
+  const serviceStartDate = midEndDate ? addDays(midEndDate, 1) : joinDate;
+  const serviceEndDate = endDate;
+
+  if (serviceStartDate > serviceEndDate) {
+    setStatus(severanceStatus, "중간정산 종료일 이후의 계속근로기간이 없습니다.", "error");
+    hideSeveranceResult();
+    return;
+  }
+
+  const serviceDays = diffDaysInclusive(serviceStartDate, serviceEndDate);
+
+  if (eligibleDays <= 0) {
+    setStatus(severanceStatus, "평균임금 산정일수는 1일 이상이어야 합니다.", "error");
+    hideSeveranceResult();
+    return;
+  }
+
+  if (serviceDays < 365) {
+    setStatus(
+      severanceStatus,
+      "법정 퇴직금은 계속근로기간이 1년 이상인 경우에만 발생합니다. 중간정산 이후 계속근로기간을 확인해 주세요.",
+      "error"
+    );
+    hideSeveranceResult();
+    return;
+  }
+
+  const wages = severanceWageInputs.map((input) => getNumericInputValue(input));
+  const periodsWithWages = periods.map((period, index) => ({
+    ...period,
+    wage: wages[index] || 0,
+  }));
+  const periodWageTotal = periodsWithWages.reduce((sum, period) => sum + period.wage, 0);
+  const bonusAdjusted = Math.round((getNumericInputValue(severanceBonusInput) * 3) / 12);
+  const vacationAdjusted = Math.round((getNumericInputValue(severanceVacationPayInput) * 3) / 12);
+  const totalWages = periodWageTotal + bonusAdjusted + vacationAdjusted;
+  const averageWage = Math.round(totalWages / eligibleDays);
+  const retirementPay = roundUpToTens((averageWage * 30 * serviceDays) / 365);
+  const totalRetirementIncome = retirementPay;
+
+  severanceSummary.innerHTML = [
+    buildSeveranceSummaryCard("기본 정보", [
+      { label: "작성일", value: formatDateValue(new Date()) },
+      { label: "퇴직일", value: formatDateValue(serviceEndDate) },
+      { label: "계속근로 시작일", value: formatDateValue(serviceStartDate) },
+      { label: "계속근로기간", value: `${formatNumber(serviceDays)}일` },
+      { label: "평균임금 산정 기간", value: `${formatDateValue(overallStart)} ~ ${formatDateValue(overallEnd)}` },
+      { label: "평균임금 산정일수", value: `${formatNumber(eligibleDays)}일` },
+      { label: "고용형태", value: severanceEmploymentTypeInput.value.trim() || "-" },
+      { label: "성명", value: severanceNameInput.value.trim() || "-" },
+    ]),
+    buildSeveranceSummaryCard("법정 퇴직금 계산", [
+      { label: "총임금액", value: `${formatNumber(totalWages)}원` },
+      { label: "평균임금", value: `${formatNumber(averageWage)}원` },
+      { label: "법정 산정식", value: "평균임금 30일분 x 계속근로기간 / 365" },
+      { label: "퇴직금", value: `${formatNumber(retirementPay)}원` },
+    ]),
+    buildSeveranceSummaryCard("계산 결과", [
+      { label: "퇴직소득총액", value: `${formatNumber(totalRetirementIncome)}원` },
+    ]),
+  ].join("");
+
+  severancePeriodTable.innerHTML = `
+    <thead>
+      <tr>
+        <th>구간</th>
+        <th>기간</th>
+        <th>일수</th>
+        <th>급여(세전)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${periodsWithWages
+        .map(
+          (period, index) => `
+            <tr>
+              <td>${index + 1}구간</td>
+              <td>${formatDateValue(period.from)} ~ ${formatDateValue(period.to)}</td>
+              <td>${formatNumber(period.days)}일</td>
+              <td>${formatNumber(period.wage, 2)}원</td>
+            </tr>
+          `
+        )
+        .join("")}
+      <tr>
+        <td>상여금</td>
+        <td>3/12 반영</td>
+        <td>-</td>
+        <td>${formatNumber(bonusAdjusted)}원</td>
+      </tr>
+      <tr>
+        <td>연차수당</td>
+        <td>3/12 반영</td>
+        <td>-</td>
+        <td>${formatNumber(vacationAdjusted)}원</td>
+      </tr>
+    </tbody>
+  `;
+
+  severanceResult?.classList.remove("is-hidden");
+  severanceSavePdfButton?.removeAttribute("disabled");
+  setStatus(
+    severanceStatus,
+    "법정 퇴직금 기준으로 계산이 완료되었습니다. 평균임금 산정 기간과 계속근로기간을 함께 확인해 주세요.",
+    "success"
+  );
+}
+
 triggers.forEach((trigger) => {
   trigger.addEventListener("click", (event) => {
     const { target } = trigger.dataset;
@@ -1944,6 +2397,36 @@ workstatFileInput?.addEventListener("change", () => {
 
 workstatHeaderRowInput?.addEventListener("change", hideWorkstatResult);
 workstatStartDateInput?.addEventListener("change", hideWorkstatResult);
+severanceJoinDateInput?.addEventListener("change", () => {
+  hideSeveranceResult();
+  renderSeverancePeriodLabels();
+});
+severanceEndDateInput?.addEventListener("change", () => {
+  hideSeveranceResult();
+  renderSeverancePeriodLabels();
+});
+[
+  severanceCompanyInput,
+  severanceSiteInput,
+  severanceNameInput,
+  severanceIdNumberInput,
+  severanceEmploymentTypeInput,
+  severanceMidStartInput,
+  severanceMidEndInput,
+  severanceBonusInput,
+  severanceVacationPayInput,
+  ...severanceWageInputs,
+].forEach((input) => {
+  input?.addEventListener("input", hideSeveranceResult);
+});
+
+severanceWageInputs.forEach((input) => {
+  input?.addEventListener("input", () => formatNumericInput(input, true));
+});
+
+[severanceBonusInput, severanceVacationPayInput].forEach((input) => {
+  input?.addEventListener("input", () => formatNumericInput(input, false));
+});
 
 document.querySelectorAll('input[name="split-mode"]').forEach((radio) => {
   radio.addEventListener("change", updateSplitOptionFields);
@@ -1955,5 +2438,8 @@ peopleRunButton?.addEventListener("click", handlePeopleAnalysis);
 vacationRunButton?.addEventListener("click", handleVacationLedger);
 salaryRunButton?.addEventListener("click", handleSalaryAnalysis);
 workstatRunButton?.addEventListener("click", handleWorkstatAnalysis);
+severanceRunButton?.addEventListener("click", handleSeveranceCalculation);
+severanceSavePdfButton?.addEventListener("click", handleSeverancePdfSave);
 
 updateSplitOptionFields();
+renderSeverancePeriodLabels();
