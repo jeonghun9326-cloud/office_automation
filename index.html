@@ -270,8 +270,8 @@
               <h2>인원 분석</h2>
             </div>
             <p>
-              인사 엑셀 파일을 업로드하고 컬럼 행과 기준 연월을 입력하면, 해당 월의
-              입사자/퇴사자와 말일 기준 재직 인원을 정리한 엑셀 파일을 생성합니다.
+              인사 엑셀 파일을 업로드하고 컬럼 행, 분석 구분, 기준 기간을 입력하면, 선택 기간의
+              입사자/퇴사자와 기간말 기준 재직 인원을 정리한 엑셀 파일을 생성합니다.
             </p>
             <div class="toolbox">
               <label class="field">
@@ -292,16 +292,40 @@
                 <small>첫 번째 행이 컬럼이면 1 입력</small>
               </label>
               <label class="field">
-                <span>기준 연월</span>
-                <input id="people-month" type="month" />
-                <small>입사/퇴사 집계와 말일 재직 인원을 계산할 기준 월</small>
+                <span>분석 구분</span>
+                <select id="people-period-mode">
+                  <option value="monthly">월분석</option>
+                  <option value="quarterly">분기분석</option>
+                  <option value="half-yearly">반기분석</option>
+                  <option value="yearly">연분석</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>기준 연도</span>
+                <input id="people-period-year" type="number" min="2000" step="1" placeholder="예: 2026" />
+                <small>선택 기간이 속한 연도</small>
+              </label>
+              <label class="field">
+                <span id="people-period-unit-label">기준 월</span>
+                <select id="people-period-unit"></select>
+                <small id="people-period-unit-help">선택 월 기준으로 입사/퇴사와 말일 재직 인원을 분석합니다.</small>
+              </label>
+              <label class="field">
+                <span>기간 컬럼명</span>
+                <input id="people-period-column" type="text" placeholder="예: 지급월" />
+                <small>분석 기간 판정에 사용할 컬럼명을 입력합니다.</small>
+              </label>
+              <label class="field">
+                <span>급여 컬럼명</span>
+                <input id="people-salary-column" type="text" placeholder="예: 지급합계" />
+                <small>0이 아닌 인원 수를 계산할 급여 컬럼명을 입력합니다.</small>
               </label>
               <div class="action-row">
                 <button class="primary-button" id="people-run" type="button">분석 파일 생성</button>
               </div>
             </div>
             <div class="status-box" id="people-status">
-              파일과 기준 연월을 입력한 뒤 분석 파일 생성을 실행하세요.
+              파일과 분석 구분, 기준 기간, 기간 컬럼명, 급여 컬럼명을 입력한 뒤 분석 파일 생성을 실행하세요.
             </div>
             <div class="file-list" id="people-file-list"></div>
           </article>
@@ -624,7 +648,7 @@
               </div>
               <div class="policy-item">
                 <h3>3. 인원 분석</h3>
-                <p>기준 연월을 입력하면 입사자, 퇴사자, 말일 기준 재직 인원을 분석한 엑셀 파일을 반환합니다.</p>
+                <p>월, 분기, 반기, 연 단위 기간을 선택해 입사자, 퇴사자, 기간말 기준 재직 인원을 분석한 엑셀 파일을 반환합니다.</p>
               </div>
               <div class="policy-item">
                 <h3>4. 연차관리대장 제작</h3>

@@ -18,7 +18,13 @@ const rowSizeField = document.getElementById("row-size-field");
 const columnNameField = document.getElementById("column-name-field");
 const peopleFileInput = document.getElementById("people-file");
 const peopleHeaderRowInput = document.getElementById("people-header-row");
-const peopleMonthInput = document.getElementById("people-month");
+const peoplePeriodModeInput = document.getElementById("people-period-mode");
+const peoplePeriodYearInput = document.getElementById("people-period-year");
+const peoplePeriodUnitInput = document.getElementById("people-period-unit");
+const peoplePeriodUnitLabel = document.getElementById("people-period-unit-label");
+const peoplePeriodUnitHelp = document.getElementById("people-period-unit-help");
+const peoplePeriodColumnInput = document.getElementById("people-period-column");
+const peopleSalaryColumnInput = document.getElementById("people-salary-column");
 const peopleRunButton = document.getElementById("people-run");
 const peopleStatus = document.getElementById("people-status");
 const peopleFileList = document.getElementById("people-file-list");
@@ -562,12 +568,251 @@ function isActiveAtMonthEnd(joinDate, leaveDate, monthEnd) {
   return leaveDate >= monthEnd;
 }
 
-function createSummarySheet(monthLabel, joiners, leavers, activeEmployees) {
+function getPeoplePeriodConfig() {
+  const mode = peoplePeriodModeInput?.value || "monthly";
+  const selectedYear = Number(peoplePeriodYearInput?.value);
+  const selectedUnit = peoplePeriodUnitInput?.value;
+
+  if (!Number.isInteger(selectedYear) || selectedYear < 1900) {
+    throw new Error("분석할 연도를 올바르게 입력해야 합니다.");
+  }
+
+  const monthlyMonths = (startMonth, endMonth) =>
+    Array.from({ length: endMonth - startMonth + 1 }, (_, index) => ({
+      year: selectedYear,
+      month: startMonth + index,
+    }));
+
+  if (mode === "monthly") {
+    const month = Number(selectedUnit);
+
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      throw new Error("분석할 월을 선택해야 합니다.");
+    }
+
+    return {
+      mode,
+      label: `${selectedYear}-${String(month).padStart(2, "0")}`,
+      startDate: new Date(selectedYear, month - 1, 1),
+      endDate: new Date(selectedYear, month, 0),
+      months: monthlyMonths(month, month),
+      monthCount: 1,
+    };
+  }
+
+  if (mode === "quarterly") {
+    const quarter = Number(selectedUnit);
+
+    if (!Number.isInteger(quarter) || quarter < 1 || quarter > 4) {
+      throw new Error("분석할 분기를 선택해야 합니다.");
+    }
+
+    const startMonth = (quarter - 1) * 3 + 1;
+    const endMonth = startMonth + 2;
+
+    return {
+      mode,
+      label: `${selectedYear}년 ${quarter}분기`,
+      startDate: new Date(selectedYear, startMonth - 1, 1),
+      endDate: new Date(selectedYear, endMonth, 0),
+      months: monthlyMonths(startMonth, endMonth),
+      monthCount: 3,
+    };
+  }
+
+  if (mode === "half-yearly") {
+    const half = Number(selectedUnit);
+
+    if (half !== 1 && half !== 2) {
+      throw new Error("분석할 반기를 선택해야 합니다.");
+    }
+
+    const startMonth = half === 1 ? 1 : 7;
+    const endMonth = half === 1 ? 6 : 12;
+
+    return {
+      mode,
+      label: `${selectedYear}년 ${half === 1 ? "상반기" : "하반기"}`,
+      startDate: new Date(selectedYear, startMonth - 1, 1),
+      endDate: new Date(selectedYear, endMonth, 0),
+      months: monthlyMonths(startMonth, endMonth),
+      monthCount: 6,
+    };
+  }
+
+  return {
+    mode: "yearly",
+    label: `${selectedYear}년`,
+    startDate: new Date(selectedYear, 0, 1),
+    endDate: new Date(selectedYear, 12, 0),
+    months: monthlyMonths(1, 12),
+    monthCount: 12,
+  };
+}
+
+function updatePeoplePeriodControls() {
+  const mode = peoplePeriodModeInput?.value || "monthly";
+
+  if (!peoplePeriodUnitInput || !peoplePeriodUnitLabel || !peoplePeriodUnitHelp || !peoplePeriodYearInput) {
+    return;
+  }
+
+  if (!peoplePeriodYearInput.value) {
+    peoplePeriodYearInput.value = String(new Date().getFullYear());
+  }
+
+  const optionConfigMap = {
+    monthly: {
+      label: "기준 월",
+      help: "선택 월 기준으로 입사/퇴사와 말일 재직 인원을 분석합니다.",
+      options: Array.from({ length: 12 }, (_, index) => ({
+        value: String(index + 1),
+        label: `${index + 1}월`,
+      })),
+    },
+    quarterly: {
+      label: "기준 분기",
+      help: "선택 분기(3개월) 기준으로 입사/퇴사와 말일 재직 인원을 분석합니다.",
+      options: Array.from({ length: 4 }, (_, index) => ({
+        value: String(index + 1),
+        label: `${index + 1}분기`,
+      })),
+    },
+    "half-yearly": {
+      label: "기준 반기",
+      help: "선택 반기(6개월) 기준으로 입사/퇴사와 말일 재직 인원을 분석합니다.",
+      options: [
+        { value: "1", label: "상반기" },
+        { value: "2", label: "하반기" },
+      ],
+    },
+    yearly: {
+      label: "기준 기간",
+      help: "선택 연도 전체 기준으로 입사/퇴사와 말일 재직 인원을 분석합니다.",
+      options: [{ value: "1", label: "연간" }],
+    },
+  };
+
+  const config = optionConfigMap[mode];
+  peoplePeriodUnitLabel.textContent = config.label;
+  peoplePeriodUnitHelp.textContent = config.help;
+  peoplePeriodUnitInput.innerHTML = config.options
+    .map((option) => `<option value="${option.value}">${option.label}</option>`)
+    .join("");
+}
+
+function calculatePeriodAverageHeadcount(employees, activeEmployeeCount, periodConfig, analysisMonths) {
+  if (periodConfig.mode === "monthly") {
+    return activeEmployeeCount;
+  }
+
+  const totalActiveEmployees = analysisMonths.reduce((sum, period) => {
+    const monthEnd = new Date(period.year, period.month, 0);
+    const monthActiveCount = employees.filter((employee) =>
+      isActiveAtMonthEnd(employee.joinDate, employee.leaveDate, monthEnd)
+    ).length;
+    return sum + monthActiveCount;
+  }, 0);
+
+  return analysisMonths.length ? Number((totalActiveEmployees / analysisMonths.length).toFixed(2)) : 0;
+}
+
+function isPeriodInSelection(periodInfo, periodConfig) {
+  if (!periodInfo) {
+    return false;
+  }
+
+  return periodConfig.months.some((monthInfo) => monthInfo.year === periodInfo.year && monthInfo.month === periodInfo.month);
+}
+
+function getAvailablePeriodMonths(rows, periodColumnIndex, periodConfig) {
+  const availableMonthMap = new Map();
+
+  rows.forEach((row) => {
+    const periodInfo = parsePeriodInfo(row[periodColumnIndex]);
+
+    if (!isPeriodInSelection(periodInfo, periodConfig)) {
+      return;
+    }
+
+    const key = `${periodInfo.year}-${String(periodInfo.month).padStart(2, "0")}`;
+
+    if (!availableMonthMap.has(key)) {
+      availableMonthMap.set(key, { year: periodInfo.year, month: periodInfo.month });
+    }
+  });
+
+  return periodConfig.months.filter((monthInfo) => {
+    const key = `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}`;
+    return availableMonthMap.has(key);
+  });
+}
+
+function calculateSalaryAverageHeadcount(rows, employeeIdIndex, periodColumnIndex, salaryColumnIndex, periodConfig, analysisMonths) {
+  if (periodConfig.mode === "monthly") {
+    const paidEmployeeKeys = new Set();
+
+    rows.forEach((row) => {
+      const periodInfo = parsePeriodInfo(row[periodColumnIndex]);
+
+      if (!isPeriodInSelection(periodInfo, periodConfig)) {
+        return;
+      }
+
+      const salaryAmount = parseNumberValue(row[salaryColumnIndex]);
+
+      if (salaryAmount === 0) {
+        return;
+      }
+
+      const employeeKey = getEmployeeKey(row, employeeIdIndex);
+
+      if (employeeKey) {
+        paidEmployeeKeys.add(employeeKey);
+      }
+    });
+
+    return paidEmployeeKeys.size;
+  }
+
+  const totalPaidEmployees = analysisMonths.reduce((sum, monthInfo) => {
+    const paidEmployeeKeys = new Set();
+
+    rows.forEach((row) => {
+      const periodInfo = parsePeriodInfo(row[periodColumnIndex]);
+
+      if (!periodInfo || periodInfo.year !== monthInfo.year || periodInfo.month !== monthInfo.month) {
+        return;
+      }
+
+      const salaryAmount = parseNumberValue(row[salaryColumnIndex]);
+
+      if (salaryAmount === 0) {
+        return;
+      }
+
+      const employeeKey = getEmployeeKey(row, employeeIdIndex);
+
+      if (employeeKey) {
+        paidEmployeeKeys.add(employeeKey);
+      }
+    });
+
+    return sum + paidEmployeeKeys.size;
+  }, 0);
+
+  return analysisMonths.length ? Number((totalPaidEmployees / analysisMonths.length).toFixed(2)) : 0;
+}
+
+function createSummarySheet(periodLabel, joiners, leavers, activeEmployees, salaryAverageHeadcount, periodAverageHeadcount) {
   return XLSX.utils.aoa_to_sheet([
-    ["기준 연월", monthLabel],
-    ["당월 입사자 수", joiners.length],
-    ["당월 퇴사자 수", leavers.length],
-    ["말일 기준 재직 인원 수", activeEmployees.length],
+    ["항목", "값", "비고"],
+    ["분석 기간", periodLabel, "선택한 분석 구간입니다."],
+    ["기간 입사자 수", joiners.length, "선택한 기간 안에 입사일이 포함된 인원 수입니다."],
+    ["기간 퇴사자 수", leavers.length, "선택한 기간 안에 퇴사일이 포함된 인원 수입니다."],
+    ["기간말 재직 인원 수", activeEmployees.length, "선택한 기간 종료일 기준 재직 중인 인원 수입니다."],
+    ["급여 평균인원", salaryAverageHeadcount, "선택한 기간 안에서 실제 데이터가 존재하는 각 월별 급여 컬럼 값이 0이 아닌 인원 수를 실제 월수로 나눈 값입니다."],
+    ["기간평균인원", periodAverageHeadcount, "선택한 기간 안에서 실제 데이터가 존재하는 각 월말 재직인원 수 합계를 실제 월수로 나눈 값입니다."],
   ]);
 }
 
@@ -1553,7 +1798,8 @@ async function handleVacationLedger() {
 async function handlePeopleAnalysis() {
   const file = peopleFileInput.files?.[0];
   const headerRowNumber = Number(peopleHeaderRowInput.value);
-  const monthValue = peopleMonthInput.value;
+  const periodColumnName = peoplePeriodColumnInput?.value.trim() || "";
+  const salaryColumnName = peopleSalaryColumnInput?.value.trim() || "";
 
   if (!file) {
     setStatus(peopleStatus, "분석할 인사 엑셀 파일을 선택해야 합니다.", "error");
@@ -1565,70 +1811,132 @@ async function handlePeopleAnalysis() {
     return;
   }
 
-  if (!monthValue) {
-    setStatus(peopleStatus, "기준 연월을 선택해야 합니다.", "error");
+  if (!periodColumnName) {
+    setStatus(peopleStatus, "기간 판정에 사용할 기간 컬럼명을 입력해야 합니다.", "error");
+    return;
+  }
+
+  if (!salaryColumnName) {
+    setStatus(peopleStatus, "급여 평균인원 계산에 사용할 급여 컬럼명을 입력해야 합니다.", "error");
     return;
   }
 
   setStatus(peopleStatus, "인사 데이터를 분석하고 결과 파일을 생성하는 중입니다.");
 
-    try {
-      const parsedFiles = await collectFirstSheetRows([file], headerRowNumber);
-      const parsedFile = parsedFiles[0];
-      const headers = parsedFile.headers;
-      const employeeIdIndex = findHeaderIndex(headers, ["사번"]);
-      const nameIndex = findHeaderIndex(headers, ["성명", "이름"]);
-      const joinIndex = findHeaderIndex(headers, ["입사일", "입사"]);
-      const leaveIndex = findHeaderIndex(headers, ["퇴사일", "퇴사"]);
+  try {
+    const periodConfig = getPeoplePeriodConfig();
+    const parsedFiles = await collectFirstSheetRows([file], headerRowNumber);
+    const parsedFile = parsedFiles[0];
+    const headers = parsedFile.headers;
+    const employeeIdIndex = findHeaderIndex(headers, ["사번"]);
+    const nameIndex = findHeaderIndex(headers, ["성명", "이름"]);
+    const joinIndex = findHeaderIndex(headers, ["입사일", "입사"]);
+    const leaveIndex = findHeaderIndex(headers, ["퇴사일", "퇴사"]);
+    const periodColumnIndex =
+      findHeaderIndex(headers, [periodColumnName]) !== -1
+        ? findHeaderIndex(headers, [periodColumnName])
+        : findHeaderIndexLoose(headers, [periodColumnName]);
+    const salaryColumnIndex =
+      findHeaderIndex(headers, [salaryColumnName]) !== -1
+        ? findHeaderIndex(headers, [salaryColumnName])
+        : findHeaderIndexLoose(headers, [salaryColumnName]);
 
-      if (employeeIdIndex === -1) {
-        throw new Error("필수 컬럼이 없습니다. 사번 컬럼은 반드시 있어야 합니다.");
+    if (employeeIdIndex === -1) {
+      throw new Error("필수 컬럼이 없습니다. 사번 컬럼은 반드시 있어야 합니다.");
+    }
+
+    if (nameIndex === -1) {
+      throw new Error("필수 컬럼이 없습니다. 성명 또는 이름 컬럼 중 하나는 있어야 합니다.");
+    }
+
+    if (joinIndex === -1 || leaveIndex === -1) {
+      throw new Error("필수 컬럼이 없습니다. 입사일(또는 입사), 퇴사일(또는 퇴사)이 필요합니다.");
+    }
+
+    if (periodColumnIndex === -1) {
+      throw new Error(`입력한 기간 컬럼명(${periodColumnName})을 파일에서 찾을 수 없습니다.`);
+    }
+
+    if (salaryColumnIndex === -1) {
+      throw new Error(`입력한 급여 컬럼명(${salaryColumnName})을 파일에서 찾을 수 없습니다.`);
+    }
+
+    const employees = [];
+    const seenEmployeeIds = new Set();
+    const joiners = [];
+    const leavers = [];
+    const activeEmployees = [];
+    const joinerKeys = new Set();
+    const leaverKeys = new Set();
+    const activeKeys = new Set();
+
+    parsedFile.dataRows.forEach((row) => {
+      const employeeKey = getEmployeeKey(row, employeeIdIndex);
+      const joinDate = parseExcelDate(row[joinIndex]);
+      const leaveDate = parseExcelDate(row[leaveIndex]);
+
+      if (employeeKey && !seenEmployeeIds.has(employeeKey) && joinDate) {
+        seenEmployeeIds.add(employeeKey);
+        employees.push({
+          employeeId: employeeKey,
+          employeeName: String(row[nameIndex]?.v ?? "").trim(),
+          joinDate,
+          leaveDate,
+        });
       }
 
-      if (nameIndex === -1) {
-        throw new Error("필수 컬럼이 없습니다. 성명 또는 이름 컬럼 중 하나는 있어야 합니다.");
+      if (joinDate && joinDate >= periodConfig.startDate && joinDate <= periodConfig.endDate) {
+        pushUniqueEmployee(joiners, joinerKeys, employeeKey, row);
       }
 
-      if (joinIndex === -1 || leaveIndex === -1) {
-        throw new Error("필수 컬럼이 없습니다. 입사일(또는 입사), 퇴사일(또는 퇴사)이 필요합니다.");
+      if (leaveDate && leaveDate >= periodConfig.startDate && leaveDate <= periodConfig.endDate) {
+        pushUniqueEmployee(leavers, leaverKeys, employeeKey, row);
       }
 
-    const [year, month] = monthValue.split("-").map(Number);
-      const monthStart = new Date(year, month - 1, 1);
-      const monthEnd = new Date(year, month, 0);
+      if (isActiveAtMonthEnd(joinDate, leaveDate, periodConfig.endDate)) {
+        pushUniqueEmployee(activeEmployees, activeKeys, employeeKey, row);
+      }
+    });
 
-      const joiners = [];
-      const leavers = [];
-      const activeEmployees = [];
-      const joinerKeys = new Set();
-      const leaverKeys = new Set();
-      const activeKeys = new Set();
+    const analysisMonths = getAvailablePeriodMonths(parsedFile.dataRows, periodColumnIndex, periodConfig);
 
-      parsedFile.dataRows.forEach((row) => {
-        const employeeKey = getEmployeeKey(row, employeeIdIndex);
-        const joinDate = parseExcelDate(row[joinIndex]);
-        const leaveDate = parseExcelDate(row[leaveIndex]);
+    if (!analysisMonths.length) {
+      throw new Error("선택한 기간에 해당하는 데이터 월을 기간 컬럼에서 찾을 수 없습니다.");
+    }
 
-        if (isBetweenMonth(joinDate, monthStart, monthEnd)) {
-          pushUniqueEmployee(joiners, joinerKeys, employeeKey, row);
-        }
-
-        if (isBetweenMonth(leaveDate, monthStart, monthEnd)) {
-          pushUniqueEmployee(leavers, leaverKeys, employeeKey, row);
-        }
-
-        if (isActiveAtMonthEnd(joinDate, leaveDate, monthEnd)) {
-          pushUniqueEmployee(activeEmployees, activeKeys, employeeKey, row);
-        }
-      });
+    const salaryAverageHeadcount = calculateSalaryAverageHeadcount(
+      parsedFile.dataRows,
+      employeeIdIndex,
+      periodColumnIndex,
+      salaryColumnIndex,
+      periodConfig,
+      analysisMonths
+    );
+    const periodAverageHeadcount = calculatePeriodAverageHeadcount(
+      employees,
+      activeEmployees.length,
+      periodConfig,
+      analysisMonths
+    );
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, createSummarySheet(monthValue, joiners, leavers, activeEmployees), "요약");
+    XLSX.utils.book_append_sheet(
+      workbook,
+      createSummarySheet(
+        periodConfig.label,
+        joiners,
+        leavers,
+        activeEmployees,
+        salaryAverageHeadcount,
+        periodAverageHeadcount
+      ),
+      "요약"
+    );
     XLSX.utils.book_append_sheet(workbook, buildSheetFromStructuredRows(headers, joiners), "입사자");
     XLSX.utils.book_append_sheet(workbook, buildSheetFromStructuredRows(headers, leavers), "퇴사자");
     XLSX.utils.book_append_sheet(workbook, buildSheetFromStructuredRows(headers, activeEmployees), "재직자");
 
-    const outputName = `people_analysis_${monthValue}.xlsx`;
+    const outputName = `people_analysis_${periodConfig.mode}_${periodConfig.label.replace(/[^\w가-힣-]/g, "_")}.xlsx`;
     XLSX.writeFile(workbook, outputName);
     setStatus(peopleStatus, `분석이 완료되었습니다. ${outputName} 파일이 다운로드됩니다.`, "success");
   } catch (error) {
@@ -2450,11 +2758,13 @@ peopleFileInput?.addEventListener("change", () => {
   const message = renderSelectedFiles(
     peopleFileInput,
     peopleFileList,
-    "파일과 기준 연월을 입력한 뒤 분석 파일 생성을 실행하세요.",
-    "컬럼 행과 기준 연월을 입력하고 실행하세요."
+    "파일과 분석 구분, 기준 기간, 기간 컬럼명, 급여 컬럼명을 입력한 뒤 분석 파일 생성을 실행하세요.",
+    "컬럼 행과 기준 기간, 기간 컬럼명, 급여 컬럼명을 입력하고 실행하세요."
   );
   setStatus(peopleStatus, message);
 });
+
+peoplePeriodModeInput?.addEventListener("change", updatePeoplePeriodControls);
 
 vacationFileInput?.addEventListener("change", () => {
   const message = renderSelectedFiles(
@@ -2559,4 +2869,5 @@ severanceRunButton?.addEventListener("click", handleSeveranceCalculation);
 severanceSavePdfButton?.addEventListener("click", handleSeverancePdfSave);
 
 updateSplitOptionFields();
+updatePeoplePeriodControls();
 renderSeverancePeriodLabels();
