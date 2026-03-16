@@ -49,7 +49,7 @@ const workstatBackwardPreview = document.getElementById("workstat-backward-previ
 const severanceCompanyInput = document.getElementById("severance-company");
 const severanceSiteInput = document.getElementById("severance-site");
 const severanceNameInput = document.getElementById("severance-name");
-const severanceIdNumberInput = document.getElementById("severance-id-number");
+const severanceBirthDateInput = document.getElementById("severance-birth-date");
 const severanceJoinDateInput = document.getElementById("severance-join-date");
 const severanceEndDateInput = document.getElementById("severance-end-date");
 const severanceEmploymentTypeInput = document.getElementById("severance-employment-type");
@@ -2526,7 +2526,7 @@ severanceEndDateInput?.addEventListener("change", () => {
   severanceCompanyInput,
   severanceSiteInput,
   severanceNameInput,
-  severanceIdNumberInput,
+  severanceBirthDateInput,
   severanceEmploymentTypeInput,
   severanceMidStartInput,
   severanceMidEndInput,
