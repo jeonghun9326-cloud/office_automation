@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>주휴계산 사용설명서</title>
+    <style>
+      body { font-family: "Malgun Gothic", sans-serif; margin: 34px; color: #2f241d; line-height: 1.7; }
+      h1 { font-size: 28px; margin: 0 0 8px; }
+      h2 { font-size: 18px; margin: 28px 0 10px; color: #7a3419; }
+      p, li { font-size: 12pt; }
+    </style>
+  </head>
+  <body>
+    <h1>주휴계산 사용설명서</h1>
+    <p>근무기록 파일로 4주 평균 근무시간과 주휴 대상 여부를 계산하는 기능입니다.</p>
+    <h2>지원 컬럼 형식</h2>
+    <ul>
+      <li>work_date + hours (+ emp_id)</li>
+      <li>년 + 월 + 일 + 근무시간</li>
+    </ul>
+    <h2>사용 순서</h2>
+    <ol>
+      <li>근무기록 파일을 업로드합니다.</li>
+      <li>컬럼 행 번호를 입력합니다.</li>
+      <li>정방향 계산 기준 시작일을 입력합니다.</li>
+      <li>주휴 계산 파일 생성을 누르면 결과 파일이 다운로드됩니다.</li>
+    </ol>
+    <h2>입력 안내</h2>
+    <ul>
+      <li>예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다.</li>
+      <li>직원 구분이 필요하면 emp_id 또는 사번 컬럼을 같이 넣으면 됩니다.</li>
+      <li>시작일은 정방향 4주 묶음의 기준일입니다.</li>
+    </ul>
+    <h2>결과 파일 구성</h2>
+    <ul>
+      <li>정방향 집계 시트</li>
+      <li>역방향 집계 시트</li>
+      <li>화면 미리보기 표</li>
+    </ul>
+  </body>
+</html>

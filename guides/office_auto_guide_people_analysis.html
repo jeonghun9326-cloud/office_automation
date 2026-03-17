@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>인원 분석 사용설명서</title>
+    <style>
+      body { font-family: "Malgun Gothic", sans-serif; margin: 34px; color: #2f241d; line-height: 1.7; }
+      h1 { font-size: 28px; margin: 0 0 8px; }
+      h2 { font-size: 18px; margin: 28px 0 10px; color: #7a3419; }
+      p, li { font-size: 12pt; }
+      .note { padding: 12px 14px; border: 1px solid #d8c9bb; background: #faf4ee; border-radius: 10px; }
+    </style>
+  </head>
+  <body>
+    <h1>인원 분석 사용설명서</h1>
+    <p>기준 기간의 입사자, 퇴사자, 재직 인원을 분석하고 요약 엑셀을 생성하는 기능입니다.</p>
+    <h2>필수 컬럼</h2>
+    <ul>
+      <li>사번</li>
+      <li>성명 또는 이름</li>
+      <li>입사일 또는 입사</li>
+      <li>퇴사일 또는 퇴사</li>
+    </ul>
+    <h2>사용 순서</h2>
+    <ol>
+      <li>인사 파일을 업로드합니다.</li>
+      <li>컬럼 행 번호를 입력합니다.</li>
+      <li>분석 구분과 기준 연도, 기간을 선택합니다.</li>
+      <li>기간 컬럼명과 급여 컬럼명을 입력합니다.</li>
+      <li>분석 파일 생성을 누르면 결과 엑셀이 다운로드됩니다.</li>
+    </ol>
+    <h2>입력 안내</h2>
+    <ul>
+      <li>기간 컬럼명과 급여 컬럼명은 정해진 이름이 없습니다. 실제 파일 컬럼명을 그대로 입력하면 됩니다.</li>
+      <li>예시파일에 없는 추가 컬럼이 있어도 업로드에 문제 없습니다.</li>
+      <li>같은 사번이 여러 번 있어도 인원 계산은 사번 기준으로 정리됩니다.</li>
+    </ul>
+    <h2>결과 파일 구성</h2>
+    <ul>
+      <li>요약 시트</li>
+      <li>입사자 시트</li>
+      <li>퇴사자 시트</li>
+      <li>재직자 시트</li>
+    </ul>
+    <div class="note">기간 컬럼에는 지급월, 급여월, 대상월처럼 실제 기간 판별이 가능한 컬럼을 넣는 것이 좋습니다.</div>
+  </body>
+</html>

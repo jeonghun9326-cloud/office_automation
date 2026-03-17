@@ -325,6 +325,518 @@ function downloadBlob(blob, fileName) {
   URL.revokeObjectURL(url);
 }
 
+const exampleFileConfigs = {
+  people: {
+    fileName: "people_analysis_example.xlsx",
+    description: "업로드 전 필수 컬럼 형식을 확인할 수 있는 샘플 파일입니다.",
+    notes: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다. 필수 컬럼과 입력한 기준 컬럼만 맞으면 됩니다.",
+      "기간 컬럼명, 급여 컬럼명은 이름이 고정되어 있지 않습니다. 실제 파일의 컬럼명을 그대로 입력하면 됩니다.",
+    ],
+    sheets: [
+      {
+        name: "인원분석예시",
+        headers: ["사번", "성명", "입사일", "퇴사일", "지급월", "지급합계"],
+        rows: [
+          ["1001", "김하늘", "2024-01-15", "", "2026-01", 3200000],
+          ["1001", "김하늘", "2024-01-15", "", "2026-02", 3200000],
+          ["1002", "박서준", "2025-03-04", "", "2026-01", 2950000],
+          ["1002", "박서준", "2025-03-04", "", "2026-02", 2950000],
+          ["1003", "이은지", "2023-07-10", "2026-02-20", "2026-02", 2800000],
+        ],
+      },
+    ],
+  },
+  vacation: {
+    fileName: "vacation_ledger_example.xlsx",
+    description: "연차관리대장 생성에 맞춘 인사 파일 예시입니다.",
+    notes: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다. 필수 컬럼만 포함되어 있으면 처리에 문제 없습니다.",
+    ],
+    sheets: [
+      {
+        name: "연차대장예시",
+        headers: ["사번", "성명", "입사일", "퇴사일"],
+        rows: [
+          ["1001", "김하늘", "2022-01-15", ""],
+          ["1002", "박서준", "2024-03-04", ""],
+          ["1003", "이은지", "2023-07-10", "2026-02-20"],
+        ],
+      },
+    ],
+  },
+  salary: {
+    fileName: "salary_comparison_example.xlsx",
+    description: "급여 비교분석에서 인식하는 기본 컬럼과 항목이 포함된 샘플 파일입니다.",
+    notes: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다. 비교에 사용할 컬럼만 올바르게 선택하면 됩니다.",
+      "기간 비교 컬럼명은 이름이 고정되어 있지 않습니다. 실제 파일의 컬럼명을 그대로 입력하면 됩니다.",
+    ],
+    sheets: [
+      {
+        name: "급여비교예시",
+        headers: ["사번", "성명", "부서", "직급", "직군", "지급월", "기본급", "식대", "지급합계"],
+        rows: [
+          ["1001", "김하늘", "경영지원", "대리", "사무", "2026-01", 2800000, 200000, 3000000],
+          ["1001", "김하늘", "경영지원", "대리", "사무", "2026-02", 2800000, 200000, 3000000],
+          ["1002", "박서준", "영업", "주임", "영업", "2026-01", 2600000, 150000, 2900000],
+          ["1002", "박서준", "영업", "주임", "영업", "2026-02", 2600000, 150000, 2950000],
+          ["1003", "이은지", "생산", "사원", "현장", "2026-01", 2500000, 180000, 2820000],
+        ],
+      },
+    ],
+  },
+  workstat: {
+    fileName: "weekly_holiday_example.xlsx",
+    description: "주휴계산에서 바로 읽을 수 있는 근무기록 예시입니다.",
+    notes: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다. 지원하는 날짜/근무시간 컬럼이 포함되어 있으면 됩니다.",
+    ],
+    sheets: [
+      {
+        name: "주휴계산예시",
+        headers: ["emp_id", "work_date", "hours"],
+        rows: [
+          ["1001", "2026-01-01", 8],
+          ["1001", "2026-01-02", 8],
+          ["1001", "2026-01-05", 6],
+          ["1001", "2026-01-12", 8],
+          ["1002", "2026-01-01", 4],
+          ["1002", "2026-01-03", 5],
+          ["1002", "2026-01-10", 6],
+          ["1002", "2026-01-17", 7],
+        ],
+      },
+    ],
+  },
+};
+
+const featureGuideConfigs = {
+  merge: {
+    title: "파일 병합",
+    fileName: "office_auto_guide_merge.pdf",
+    pdfPath: "guides/office_auto_guide_merge.pdf",
+    summary: "여러 엑셀 파일을 하나로 모을 때 사용하는 기능입니다.",
+    steps: [
+      "병합할 엑셀 파일을 하나 이상 업로드합니다.",
+      "헤더가 있는 행 번호를 입력합니다. 첫 행이 헤더면 1을 입력합니다.",
+      "하나의 시트로 합칠지, 파일별 시트로 나눌지 병합 방식을 선택합니다.",
+      "병합 파일 생성을 실행하면 결과 엑셀 파일이 다운로드됩니다.",
+    ],
+    details: [
+      "하나의 시트 병합은 서로 다른 컬럼이 있어도 새 컬럼을 오른쪽에 추가해 합칩니다.",
+      "시트 구분 병합은 업로드한 파일마다 별도 시트로 결과를 만듭니다.",
+      "병합 전에는 각 파일의 헤더 행 위치가 같은지 먼저 확인하는 것이 좋습니다.",
+      "빈 셀이나 일부 누락된 컬럼이 있어도 병합은 가능하지만, 결과 파일에서 빈 값으로 표시될 수 있습니다.",
+    ],
+    tips: [
+      "첫 행이 제목이고 실제 헤더가 두 번째 행부터 시작하면 컬럼 행 번호를 2로 입력합니다.",
+      "원본 파일별 구분이 필요하면 시트 구분 병합 방식을 사용하는 것이 안전합니다.",
+    ],
+    result: ["병합 결과가 담긴 단일 엑셀 파일 1개"],
+  },
+  split: {
+    title: "파일 분할",
+    fileName: "office_auto_guide_split.pdf",
+    pdfPath: "guides/office_auto_guide_split.pdf",
+    summary: "엑셀 파일을 행 기준, 컬럼 기준, 시트 기준으로 나눌 때 사용하는 기능입니다.",
+    steps: [
+      "분할할 엑셀 파일을 업로드합니다.",
+      "헤더 행 번호를 입력합니다.",
+      "행 기준, 컬럼 기준, 시트 기준 중 분할 방식을 선택합니다.",
+      "필요한 추가 옵션을 입력한 뒤 분할 파일 생성을 실행합니다.",
+    ],
+    details: [
+      "행 기준 분할은 지정한 행 수 단위로 파일을 나눕니다.",
+      "컬럼 기준 분할은 입력한 컬럼명의 값별로 파일을 분리합니다.",
+      "시트 기준 분할은 각 시트를 개별 파일로 분리합니다.",
+      "컬럼 기준 분할에서 입력하는 컬럼명은 업로드한 파일의 실제 헤더명을 기준으로 입력해야 합니다.",
+    ],
+    tips: [
+      "행 기준 분할은 대용량 파일을 여러 개로 나눠 전달할 때 유용합니다.",
+      "시트 기준 분할은 시트명이 파일명 일부로 반영될 수 있습니다.",
+    ],
+    result: ["분할된 결과물이 압축된 ZIP 파일 1개"],
+  },
+  "join-leave": {
+    title: "인원 분석",
+    fileName: "office_auto_guide_people_analysis.pdf",
+    pdfPath: "guides/office_auto_guide_people_analysis.pdf",
+    summary: "기준 기간의 입사자, 퇴사자, 재직 인원을 분석해 요약 파일을 만듭니다.",
+    steps: [
+      "인사 파일을 업로드하고 헤더 행 번호를 입력합니다.",
+      "분석 구분과 기준 연도/기간을 선택합니다.",
+      "기간 컬럼명과 급여 컬럼명을 실제 파일 기준으로 입력합니다.",
+      "분석 파일 생성을 실행하면 요약, 입사자, 퇴사자, 재직자 시트가 생성됩니다.",
+    ],
+    requiredColumns: ["사번", "성명 또는 이름", "입사일 또는 입사", "퇴사일 또는 퇴사"],
+    details: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다.",
+      "기간 컬럼명과 급여 컬럼명은 정해진 이름이 아닙니다. 업로드한 파일의 실제 컬럼명을 입력하면 됩니다.",
+      "같은 사번이 여러 번 나타나면 인원 기준 계산은 사번 단위로 정리됩니다.",
+      "급여 평균인원 계산은 선택한 기간 안에서 실제 데이터가 존재하는 월을 기준으로 계산됩니다.",
+    ],
+    tips: [
+      "기간 컬럼에는 지급월, 급여월, 대상월처럼 실제 기간을 판별할 수 있는 컬럼을 넣으면 됩니다.",
+      "급여 컬럼에는 0보다 큰 지급값이 들어가는 컬럼을 선택하는 것이 일반적입니다.",
+    ],
+    result: ["요약 시트", "입사자 시트", "퇴사자 시트", "재직자 시트"],
+  },
+  vacation: {
+    title: "연차관리대장 제작",
+    fileName: "office_auto_guide_vacation_ledger.pdf",
+    pdfPath: "guides/office_auto_guide_vacation_ledger.pdf",
+    summary: "선택한 연도 기준으로 월별 연차관리대장 파일을 자동으로 생성합니다.",
+    steps: [
+      "인사 파일을 업로드하고 생성 연도, 헤더 행 번호를 입력합니다.",
+      "회계연도 기준 또는 입사일 기준 중 생성 방식을 선택합니다.",
+      "연차관리대장 생성을 실행하면 월별 시트가 포함된 엑셀 파일이 내려받아집니다.",
+    ],
+    requiredColumns: ["사번", "성명 또는 이름", "입사일 또는 입사", "퇴사일 또는 퇴사"],
+    details: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다.",
+      "중도 입사자의 일부 이월 계산은 자동 반영되지 않을 수 있어 생성 후 확인이 필요합니다.",
+      "생성된 파일에서 사용일을 입력하면 당월 사용과 잔여 연차가 연동됩니다.",
+      "연차 발생 기준은 회계연도 기준과 입사일 기준 중 하나를 선택할 수 있습니다.",
+    ],
+    tips: [
+      "생성 후 1월 시트와 연간 요약 시트의 연결 수식을 먼저 확인하면 사용 중 오류를 줄일 수 있습니다.",
+      "퇴사자가 있는 경우 퇴사일 이후 월의 잔여 연차 값은 별도 검토가 필요할 수 있습니다.",
+    ],
+    result: ["연간 요약 시트", "1월부터 12월까지의 월별 연차관리 시트"],
+  },
+  salary: {
+    title: "급여 비교분석",
+    fileName: "office_auto_guide_salary_analysis.pdf",
+    pdfPath: "guides/office_auto_guide_salary_analysis.pdf",
+    summary: "기간별 급여 항목의 증감과 그룹별 비교 결과를 엑셀로 정리합니다.",
+    steps: [
+      "급여 파일을 하나 이상 업로드하고 헤더 행 번호를 입력합니다.",
+      "기간 비교에 사용할 컬럼명을 실제 파일 기준으로 입력합니다.",
+      "비교 기간, 비교 형태, 비교할 급여 항목을 선택합니다.",
+      "비교 파일 생성을 실행하면 기간별 비교 시트가 포함된 파일이 내려받아집니다.",
+    ],
+    requiredColumns: ["사번"],
+    details: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다.",
+      "기간 비교 컬럼명은 정해진 이름이 아닙니다. 실제 파일의 컬럼명을 입력하면 됩니다.",
+      "개인별 비교에서는 사번 컬럼이 반드시 필요합니다.",
+      "비교 항목 선택 영역에는 급여성 컬럼만 표시되도록 일부 기본 인사 컬럼이 자동 제외됩니다.",
+    ],
+    tips: [
+      "처음에는 전체가 아니라 대표 급여 항목 몇 개만 선택해서 결과 형식을 먼저 확인하는 것이 안전합니다.",
+      "개인별 비교가 필요 없으면 전체 또는 부서 기준 비교가 더 빠르게 결과를 검토하기 좋습니다.",
+    ],
+    result: ["선택한 기간 구분별 비교 시트", "각 시트의 이전 기간, 현재 기간, 증감액 열"],
+  },
+  severance: {
+    title: "퇴직금 계산기",
+    fileName: "office_auto_guide_severance.pdf",
+    pdfPath: "guides/office_auto_guide_severance.pdf",
+    summary: "입사일, 종료일, 최근 3개월 급여 기준으로 퇴직금을 계산합니다.",
+    steps: [
+      "기본 정보와 입사일, 종료일을 입력합니다.",
+      "최근 3개월 급여와 상여금, 연차수당을 입력합니다.",
+      "필요하면 중간정산 기간을 추가 입력합니다.",
+      "퇴직금 계산을 실행하면 요약표가 생성되고 PDF 저장이 가능합니다.",
+    ],
+    details: [
+      "이 기능은 파일 업로드 없이 화면 입력값으로 바로 계산합니다.",
+      "중간정산 기간을 입력할 때는 시작일과 종료일을 모두 입력해야 합니다.",
+      "실지급액은 회사 규정, 공제 방식에 따라 실제와 차이가 있을 수 있습니다.",
+      "최근 3개월 급여 입력란은 종료일 다음 날을 기준으로 자동 계산된 구간 라벨을 따릅니다.",
+    ],
+    tips: [
+      "계산 전 종료일을 먼저 입력하면 급여 구간 라벨을 바로 확인할 수 있습니다.",
+      "출력용 문서가 필요하면 계산 후 PDF 저장 버튼을 사용하는 흐름이 가장 안정적입니다.",
+    ],
+    result: ["화면 요약 카드", "평균임금 산정 표", "계산 결과 PDF 저장 기능"],
+  },
+  "weekly-holiday": {
+    title: "주휴계산",
+    fileName: "office_auto_guide_weekly_holiday.pdf",
+    pdfPath: "guides/office_auto_guide_weekly_holiday.pdf",
+    summary: "근무기록 파일로 4주 평균 근무시간과 주휴 대상 여부를 계산합니다.",
+    steps: [
+      "근무기록 파일을 업로드하고 헤더 행 번호를 입력합니다.",
+      "정방향 계산 기준이 되는 시작일을 입력합니다.",
+      "주휴 계산 파일 생성을 실행하면 정방향/역방향 집계가 함께 생성됩니다.",
+    ],
+    requiredColumns: ["work_date + hours (+ emp_id) 또는 년 + 월 + 일 + 근무시간"],
+    details: [
+      "예시파일에 없는 추가 컬럼이 있어도 업로드할 수 있습니다.",
+      "직원 구분이 필요하면 emp_id 또는 사번 계열 컬럼을 같이 넣으면 됩니다.",
+      "결과 파일에는 정방향, 역방향 4주 집계가 각각 시트로 생성됩니다.",
+      "지원 형식은 work_date + hours 조합 또는 년/월/일/근무시간 조합입니다.",
+    ],
+    tips: [
+      "시작일은 정방향 4주 묶음의 기준일이므로 실제 운영 기준 주 시작일과 맞추는 것이 좋습니다.",
+      "근무시간이 0인 행이 많은 경우 역방향 계산 결과를 함께 비교해 보는 것이 좋습니다.",
+    ],
+    result: ["정방향 집계 시트", "역방향 집계 시트", "화면 미리보기 표"],
+  },
+};
+
+function downloadExampleWorkbook(exampleKey) {
+  const config = exampleFileConfigs[exampleKey];
+
+  if (!config) {
+    return;
+  }
+
+  const workbook = XLSX.utils.book_new();
+
+  config.sheets.forEach((sheetConfig) => {
+    const matrix = [sheetConfig.headers, ...sheetConfig.rows];
+    const sheet = XLSX.utils.aoa_to_sheet(matrix);
+    XLSX.utils.book_append_sheet(workbook, sheet, normalizeSheetName(sheetConfig.name, new Set()));
+  });
+
+  XLSX.writeFile(workbook, config.fileName);
+}
+
+function setupExampleDownloadBlocks() {
+  const targets = [
+    { input: peopleFileInput, exampleKey: "people" },
+    { input: vacationFileInput, exampleKey: "vacation" },
+    { input: salaryFilesInput, exampleKey: "salary" },
+    { input: workstatFileInput, exampleKey: "workstat" },
+  ];
+
+  targets.forEach(({ input, exampleKey }) => {
+    const config = exampleFileConfigs[exampleKey];
+    const field = input?.closest(".field");
+
+    if (!config || !field || field.nextElementSibling?.classList.contains("example-download")) {
+      return;
+    }
+
+    const block = document.createElement("div");
+    block.className = "example-download";
+    const notesHtml = (config.notes || []).length
+      ? `<ul>${config.notes.map((note) => `<li>${note}</li>`).join("")}</ul>`
+      : "";
+    block.innerHTML = `
+      <div>
+        <strong>예시파일 다운로드</strong>
+        <p>${config.description}</p>
+        ${notesHtml}
+      </div>
+      <button class="secondary-button" type="button">예시파일 받기</button>
+    `;
+
+    block.querySelector("button")?.addEventListener("click", () => downloadExampleWorkbook(exampleKey));
+    field.insertAdjacentElement("afterend", block);
+  });
+}
+
+function createGuideDownloadBlock(config, panelId) {
+  const block = document.createElement("div");
+  block.className = "guide-download";
+  block.innerHTML = `
+    <div>
+      <strong>${config.title} 사용설명서 PDF</strong>
+      <p>현재 화면 설명, 입력값, 결과 구성, 주의사항을 정리한 PDF를 다운로드합니다.</p>
+    </div>
+    <button class="secondary-button" type="button">PDF 다운로드</button>
+  `;
+  block.querySelector("button")?.addEventListener("click", () => downloadStaticGuidePdf(panelId));
+  return block;
+}
+
+function setupGuideDownloadBlocks() {
+  Object.entries(featureGuideConfigs).forEach(([panelId, config]) => {
+    const panel = document.getElementById(panelId);
+
+    if (!panel || panel.querySelector(".guide-download")) {
+      return;
+    }
+
+    const paragraph = Array.from(panel.children).find((child) => child.tagName === "P");
+    const block = createGuideDownloadBlock(config, panelId);
+
+    if (paragraph) {
+      paragraph.insertAdjacentElement("afterend", block);
+      return;
+    }
+
+    panel.insertAdjacentElement("afterbegin", block);
+  });
+}
+
+async function downloadStaticGuidePdf(panelId) {
+  const config = featureGuideConfigs[panelId];
+
+  if (!config?.pdfPath) {
+    return;
+  }
+
+  try {
+    const response = await fetch(config.pdfPath, { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${config.pdfPath}`);
+    }
+
+    const pdfBlob = await response.blob();
+    downloadBlob(pdfBlob, config.fileName);
+  } catch (error) {
+    window.open(config.pdfPath, "_blank", "noopener,noreferrer");
+  }
+}
+
+async function downloadFeatureGuidePdf(panelId) {
+  const config = featureGuideConfigs[panelId];
+  const panel = document.getElementById(panelId);
+  const button = panel?.querySelector(".guide-download .secondary-button");
+
+  if (!config || !panel) {
+    return;
+  }
+
+  const JsPdf = window.jspdf?.jsPDF;
+
+  if (typeof JsPdf !== "function") {
+    alert("PDF 생성 도구를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    return;
+  }
+
+  const originalLabel = button?.textContent || "";
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "PDF 생성 중...";
+  }
+
+  try {
+    const doc = new JsPdf({
+      unit: "mm",
+      format: "a4",
+      orientation: "portrait",
+    });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginX = 16;
+    const topMargin = 18;
+    const maxWidth = pageWidth - marginX * 2;
+    let cursorY = topMargin;
+
+    const ensureSpace = (heightNeeded = 8) => {
+      if (cursorY + heightNeeded <= pageHeight - 16) {
+        return;
+      }
+      doc.addPage();
+      cursorY = topMargin;
+    };
+
+    const writeLines = (lines, options = {}) => {
+      const {
+        fontSize = 11,
+        lineHeight = 6,
+        color = [47, 36, 29],
+        indent = 0,
+        bold = false,
+      } = options;
+
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(color[0], color[1], color[2]);
+
+      lines.forEach((line) => {
+        ensureSpace(lineHeight);
+        doc.text(String(line), marginX + indent, cursorY);
+        cursorY += lineHeight;
+      });
+    };
+
+    const writeWrapped = (text, options = {}) => {
+      const {
+        fontSize = 11,
+        lineHeight = 6,
+        color = [47, 36, 29],
+        indent = 0,
+        bold = false,
+      } = options;
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFontSize(fontSize);
+      const lines = doc.splitTextToSize(String(text || ""), maxWidth - indent);
+      writeLines(lines, { fontSize, lineHeight, color, indent, bold });
+    };
+
+    const writeSection = (title, items, ordered = false) => {
+      if (!items?.length) {
+        return;
+      }
+      ensureSpace(10);
+      writeWrapped(title, {
+        fontSize: 14,
+        lineHeight: 7,
+        color: [111, 49, 24],
+        bold: true,
+      });
+      cursorY += 1;
+      items.forEach((item, index) => {
+        const prefix = ordered ? `${index + 1}. ` : "- ";
+        writeWrapped(`${prefix}${item}`, {
+          fontSize: 10.5,
+          lineHeight: 5.5,
+          indent: 2,
+        });
+      });
+      cursorY += 2;
+    };
+
+    doc.setFillColor(255, 250, 245);
+    doc.rect(0, 0, pageWidth, pageHeight, "F");
+    doc.setDrawColor(178, 84, 45);
+    doc.setLineWidth(0.6);
+    doc.line(marginX, 30, pageWidth - marginX, 30);
+
+    writeWrapped("Office Auto 기능별 사용설명서", {
+      fontSize: 11,
+      lineHeight: 6,
+      color: [178, 84, 45],
+      bold: true,
+    });
+    writeWrapped(config.title, {
+      fontSize: 22,
+      lineHeight: 10,
+      color: [47, 36, 29],
+      bold: true,
+    });
+    writeWrapped(config.summary, {
+      fontSize: 11,
+      lineHeight: 6,
+      color: [47, 36, 29],
+    });
+    cursorY += 4;
+
+    writeSection("기능 개요", [
+      `${config.title} 기능을 처음 사용하는 사용자가 업로드 형식, 입력 순서, 결과 파일 구성을 한 번에 이해할 수 있도록 정리한 안내서입니다.`,
+      "아래 순서대로 진행하면 별도 설명 없이도 기능을 사용할 수 있습니다.",
+    ]);
+    writeSection("사용 순서", config.steps, true);
+    writeSection("필수 컬럼", config.requiredColumns);
+    writeSection("입력/업로드 안내", config.details);
+    writeSection("실무 팁", config.tips);
+    writeSection("결과 파일 구성", config.result);
+    writeSection("공통 안내", [
+      "컬럼명 입력 칸이 있는 기능은 이름이 고정되어 있지 않습니다. 실제 업로드 파일의 컬럼명을 그대로 입력하면 됩니다.",
+      "예시파일 제공 기능은 예시 컬럼 외의 추가 컬럼이 있어도 처리할 수 있습니다. 필요한 컬럼만 맞으면 됩니다.",
+      "날짜 형식이 섞여 있는 파일은 업로드 전에 실제 데이터 예시를 먼저 확인하는 것이 안전합니다.",
+    ]);
+
+    doc.save(config.fileName);
+  } catch (error) {
+    alert("PDF 생성 중 오류가 발생했습니다. 다시 시도해 주세요.");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel || "PDF 다운로드";
+    }
+  }
+}
+
 function buildMergedSingleSheet(parsedFiles) {
   const mergedHeaders = [];
   const headerSet = new Set();
@@ -2868,6 +3380,8 @@ workstatRunButton?.addEventListener("click", handleWorkstatAnalysis);
 severanceRunButton?.addEventListener("click", handleSeveranceCalculation);
 severanceSavePdfButton?.addEventListener("click", handleSeverancePdfSave);
 
+setupExampleDownloadBlocks();
+setupGuideDownloadBlocks();
 updateSplitOptionFields();
 updatePeoplePeriodControls();
 renderSeverancePeriodLabels();

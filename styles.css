@@ -344,6 +344,60 @@ a {
   color: var(--muted);
 }
 
+.example-download {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(61, 48, 39, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 248, 241, 0.95);
+}
+
+.example-download strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.example-download p {
+  margin: 0;
+  font-size: 0.93rem;
+}
+
+.example-download ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.guide-download {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(111, 49, 24, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 249, 243, 0.98), rgba(246, 236, 223, 0.95));
+}
+
+.guide-download strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.guide-download p {
+  margin: 0;
+  font-size: 0.93rem;
+}
+
+.guide-download .secondary-button {
+  flex-shrink: 0;
+}
+
 .field input[type="file"],
 .field input[type="number"],
 .field input[type="text"],
@@ -745,5 +799,22 @@ a {
 
   .board-row {
     grid-template-columns: 1fr;
+  }
+
+  .example-download {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .example-download .secondary-button {
+    width: 100%;
+  }
+
+  .guide-download {
+    flex-direction: column;
+  }
+
+  .guide-download .secondary-button {
+    width: 100%;
   }
 }
